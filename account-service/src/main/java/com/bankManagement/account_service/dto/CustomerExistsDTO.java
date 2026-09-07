@@ -5,16 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
-
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountListDTO {
+public class CustomerExistsDTO {
 
-    private String accountNumber;
     private Long customerId;
-    private BigDecimal balance;
-    private String accountType;
+
+    private boolean exists;
+
 }

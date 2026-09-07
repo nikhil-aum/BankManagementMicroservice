@@ -22,7 +22,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final CustomerRepository repository;
 
-    private final PasswordEncoder encoder;
+//    private final PasswordEncoder encoder;
 
     private final JwtService jwtService;
 
@@ -32,7 +32,7 @@ public class AuthServiceImpl implements AuthService {
             JwtService jwtService) {
 
         this.repository = repository;
-        this.encoder = encoder;
+//        this.encoder = encoder;
         this.jwtService = jwtService;
     }
 
@@ -48,7 +48,7 @@ public class AuthServiceImpl implements AuthService {
         Customer customer = new Customer();
         customer.setName(request.getName());
         customer.setEmail(request.getEmail());
-        customer.setPassword(encoder.encode(request.getPassword()));
+        customer.setPassword(request.getPassword());
         repository.save(customer);
 
         logger.info("Customer {} registered successfully", request.getEmail());
@@ -60,11 +60,11 @@ public class AuthServiceImpl implements AuthService {
         Customer customer = repository.findByEmail(request.getEmail()).orElseThrow(() ->
                 new InvalidCredentialsException());
 
-        if(!encoder.matches(request.getPassword(), customer.getPassword())) {
-
-            logger.error("Login failed. Invalid password for email {}", request.getEmail());
-            throw new InvalidCredentialsException();
-        }
+//        if(!encoder.matches(request.getPassword(), customer.getPassword())) {
+//
+//            logger.error("Login failed. Invalid password for email {}", request.getEmail());
+//            throw new InvalidCredentialsException();
+//        }
 
         String token = jwtService.generateToken(customer.getEmail(), customer.getId());
         logger.info("Login successful for email {}. JWT generated.", request.getEmail());

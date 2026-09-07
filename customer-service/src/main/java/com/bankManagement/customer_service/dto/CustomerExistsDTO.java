@@ -14,4 +14,5 @@ public class CustomerExistsDTO {
     private Long customerId;
 
     private boolean exists;
+
 }
