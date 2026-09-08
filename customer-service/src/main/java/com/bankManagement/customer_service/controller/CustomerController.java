@@ -3,6 +3,8 @@ package com.bankManagement.customer_service.controller;
 
 import com.bankManagement.customer_service.dto.CustomerExistsDTO;
 import com.bankManagement.customer_service.repository.CustomerRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -11,6 +13,8 @@ public class CustomerController {
 
     private final CustomerRepository repository;
 
+    private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
+
     public CustomerController(
             CustomerRepository repository) {
 
@@ -18,7 +22,17 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}/exists")
-    public CustomerExistsDTO exists(@PathVariable Long id){
-        return new CustomerExistsDTO(id, repository.existsById(id));
+    public CustomerExistsDTO exists(@PathVariable Long id) {
+        logger.info("Received request to check existence of customer with ID: {}", id);
+
+        boolean exists = repository.existsById(id);
+
+        if (exists) {
+            logger.info("Customer with ID {} exists in the database", id);
+        } else {
+            logger.warn("Customer with ID {} does not exist in the database", id);
+        }
+
+        return new CustomerExistsDTO(id, exists);
     }
 }

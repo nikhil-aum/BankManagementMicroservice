@@ -19,4 +19,6 @@ public class TransactionRequestDTO {
 
     @Positive(message = "Amount must be greater than 0")
     private BigDecimal amount;
+
+    //private Long customerId;
 }
