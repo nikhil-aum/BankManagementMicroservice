@@ -1,6 +1,6 @@
 package com.bankManagement.account_service.service.impl;
 
-import com.bankManagement.account_service.client.CustomerClient;
+import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.dto.*;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.AccountType;
@@ -49,7 +49,7 @@ public class AccountServiceImpl implements AccountService {
 
         if(exist){
             logger.warn("Customer {} already has a {} account",customerId, type.name());
-            throw new BankingException("Customer already has a " +type.name()+"account");
+            throw new BankingException("Customer already has a " +type.name()+" account");
         }
         Account account = new Account();
         account.setAccountNumber(generateAccountNumber());
@@ -93,6 +93,8 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public List<AccountListDTO> getMyAccounts(Long customerId) {
+        logger.info("Fetching accounts for customerId: {}", customerId);
+
         List<AccountListDTO> accounts = accountRepository.findByCustomerId(customerId).stream()
                 .map(acc -> new AccountListDTO(
                         acc.getAccountNumber(),
@@ -107,8 +109,10 @@ public class AccountServiceImpl implements AccountService {
             throw new BankingException("No Accounts Found for customer " + customerId);
         }
 
+        logger.info("Found {} accounts for customer {}", accounts.size(), customerId);
         return accounts;
     }
+
 
     private String generateAccountNumber() {
         SecureRandom random = new SecureRandom();

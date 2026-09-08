@@ -1,4 +1,4 @@
-package com.bankManagement.account_service.client;
+package com.bankManagement.account_service.feign;
 
 import com.bankManagement.account_service.dto.CustomerExistsDTO;
 import org.springframework.cloud.openfeign.FeignClient;
