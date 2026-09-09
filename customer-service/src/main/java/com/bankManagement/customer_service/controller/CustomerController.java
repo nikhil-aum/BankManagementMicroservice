@@ -2,6 +2,7 @@ package com.bankManagement.customer_service.controller;
 
 
 import com.bankManagement.customer_service.dto.CustomerExistsDTO;
+import com.bankManagement.customer_service.entity.Customer;
 import com.bankManagement.customer_service.repository.CustomerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +29,14 @@ public class CustomerController {
         boolean exists = repository.existsById(id);
 
         if (exists) {
+            Customer customer = repository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Customer not found despite existsById true"));
             logger.info("Customer with ID {} exists in the database", id);
+            return new CustomerExistsDTO(id, customer.getName(), true);
         } else {
             logger.warn("Customer with ID {} does not exist in the database", id);
+            return new CustomerExistsDTO(id, null, false);
         }
-
-        return new CustomerExistsDTO(id, exists);
     }
+
 }

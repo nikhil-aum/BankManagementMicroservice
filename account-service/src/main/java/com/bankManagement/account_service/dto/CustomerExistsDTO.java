@@ -13,6 +13,8 @@ public class CustomerExistsDTO {
 
     private Long customerId;
 
+    private String customerName;
+
     private boolean exists;
 
 }
