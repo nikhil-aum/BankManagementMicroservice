@@ -1,79 +1,134 @@
 package com.bankManagement.customer_service.controller;
 
+import com.bankManagement.customer_service.CustomerServiceApplication;
+import com.bankManagement.customer_service.dto.CustomerLoginDTO;
+import com.bankManagement.customer_service.dto.CustomerRegistrationDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultMatcher;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(
+        properties = {
+                "spring.cloud.config.enabled=false",
+                "eureka.client.enabled=false"
+        },
+        classes = CustomerServiceApplication.class
+)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-public class AuthControllerTest {
+class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Test
-    void testRegister_success() throws Exception {
-        String requestJson = """
-                {
-                  "name":"Ram",
-                  "email":"ram12@gmail.com",
-                  "password":"ram@123" 
-                }
-                """;
+    void register_Success() throws Exception {
+
+        CustomerRegistrationDTO request = new CustomerRegistrationDTO();
+        request.setName("Mukesh Kumar");
+        request.setEmail("mukesh@gmail.com");
+        request.setPassword("password123");
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "name":"Ram",
-                                  "email":"ram@example.com",
-                                  "password":"ram123"
-                                }
-                                """))
-                .andExpect(status().isCreated());
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(content().string("Customer registered successfully"));
     }
 
-
     @Test
-    void testLogin_success() throws Exception{
-        String registerJson = """
-            {
-              "name":"vikas",
-              "email":"vikas@gmail.com",
-              "password":"vikas123"
-            }
-        """;
+    void login_Success() throws Exception {
+
+
+        CustomerRegistrationDTO registerRequest = new CustomerRegistrationDTO();
+        registerRequest.setName("Rahul Kumar");
+        registerRequest.setEmail("rahul@gmail.com");
+        registerRequest.setPassword("password123");
+
         mockMvc.perform(post("/api/auth/register")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerJson))
+                        .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated());
 
-
-        String loginJson = """
-            {
-              "email":"vikas@gmail.com",
-              "password":"vikas123"
-            }
-        """;
+        CustomerLoginDTO loginRequest = new CustomerLoginDTO();
+        loginRequest.setEmail("rahul@gmail.com");
+        loginRequest.setPassword("password123");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson))
+                        .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
-                .andExpect((ResultMatcher) jsonPath("$.token").exists())
-                .andExpect((ResultMatcher) jsonPath("$.message").value("Login successful"));
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.message")
+                        .value("Login successful"));
     }
 
+    @Test
+    void register_InvalidEmail() throws Exception {
+
+        CustomerRegistrationDTO request = new CustomerRegistrationDTO();
+        request.setName("Nikhil");
+        request.setEmail("invalid-email");
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void register_shortPassword() throws Exception {
+
+        CustomerRegistrationDTO request = new CustomerRegistrationDTO();
+        request.setName("Nikhil");
+        request.setEmail("test@gmail.com");
+        request.setPassword("123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void login_WithWrongPassword() throws Exception {
+
+
+
+        CustomerRegistrationDTO registerRequest = new CustomerRegistrationDTO();
+        registerRequest.setName("Nikhil");
+        registerRequest.setEmail("nikhil@gmail.com");
+        registerRequest.setPassword("password123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        CustomerLoginDTO loginRequest = new CustomerLoginDTO();
+        loginRequest.setEmail("nikhil@gmail.com");
+        loginRequest.setPassword("wrongPassword");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized());
+    }
 }
