@@ -6,7 +6,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 
 @SpringBootTest
-@ActiveProfiles("account-test")
+@ActiveProfiles("test1")
 class AccountServiceApplicationTests {
 
 	@Test
