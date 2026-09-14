@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -62,5 +64,28 @@ public class AuthServiceImpl implements AuthService {
         logger.info("Login successful for email {}. JWT generated.", request.getEmail());
 
         return token;
+    }
+
+    @Override
+    public void OAUthSignUp(String email) {
+        logger.info("Processing Google OAuth user sync for email {}", email);
+
+        Optional<Customer> existingCustomer = repository.findByEmail(email);
+
+        if (existingCustomer.isEmpty()) {
+            logger.info("Google user not found in DB. Auto-registering user: {}", email);
+
+            Customer newCustomer = new Customer();
+            String defaultName = email.contains("@") ? email.split("@")[0] : email;
+
+            newCustomer.setName(defaultName);
+            newCustomer.setEmail(email);
+            newCustomer.setPassword(encoder.encode("OAUTH2_GOOGLE_USER_NO_PASSWORD"));
+
+            repository.save(newCustomer);
+            logger.info("Auto-registration complete for Google user: {}", email);
+        } else {
+            logger.info("Google user already exists in DB: {}", email);
+        }
     }
 }

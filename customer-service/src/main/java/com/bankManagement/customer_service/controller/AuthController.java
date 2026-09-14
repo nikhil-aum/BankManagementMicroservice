@@ -48,6 +48,8 @@ public class AuthController {
         logger.info("Login successful for email: {}", request.getEmail());
         return  ResponseEntity.ok(new AuthenticationResponseDTO(token,"Login successful"));
     }
+
+
 }
 
 

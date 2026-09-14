@@ -10,13 +10,12 @@ import org.springframework.context.annotation.Configuration;
 public class GatewayConfig {
 
     @Bean
-    public RouteLocator routes(RouteLocatorBuilder builder){
+    public RouteLocator routes(RouteLocatorBuilder builder) {
         return builder.routes()
-                .route("customer-service", r -> r.path("/api/auth/**","/api/customers/**")
+                .route("customer-service", r -> r.path("/api/auth/**", "/api/oauth2/**", "/api/customers/**")
                         .uri("lb://CUSTOMER-SERVICE"))
-                .route("account-service", r -> r.path("/api/accounts/**","/api/deposit/**","/api/withdraw/**","/api/transfer/**","/api/transactions/**")
+                .route("account-service", r -> r.path("/api/accounts/**", "/api/deposit/**", "/api/withdraw/**", "/api/transfer/**", "/api/transactions/**")
                         .uri("lb://ACCOUNT-SERVICE"))
                 .build();
     }
-
 }
