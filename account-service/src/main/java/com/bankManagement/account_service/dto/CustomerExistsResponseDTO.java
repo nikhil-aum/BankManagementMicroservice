@@ -1,4 +1,4 @@
-package com.bankManagement.customer_service.dto;
+package com.bankManagement.account_service.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,9 +9,11 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class CustomerExistsDTO {
+public class CustomerExistsResponseDTO {
 
     private Long customerId;
+
+    private String customerName;
 
     private boolean exists;
 

@@ -2,16 +2,19 @@ package com.bankManagement.account_service.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class AccountListResponseDTO {
 
-public class AccountDetailsDTO {
     private String accountNumber;
-    private String accountType;
+    private Long customerId;
     private BigDecimal balance;
-    private Long ownerId;
+    private String accountType;
 }

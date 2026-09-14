@@ -1,7 +1,7 @@
 package com.bankManagement.account_service.service.impl;
 
 import com.bankManagement.account_service.dto.TransactionRequestDTO;
-import com.bankManagement.account_service.dto.TransactionResultDTO;
+import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.Transaction;
 import com.bankManagement.account_service.entity.TransactionStatus;
@@ -10,6 +10,7 @@ import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.DepositService;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,18 +18,15 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 @Service
+@AllArgsConstructor
 public class DepositServiceImpl implements DepositService {
 
     private static final Logger logger = LoggerFactory.getLogger(DepositServiceImpl.class);
 
     private final AccountRepository accountRepository;
 
-    public DepositServiceImpl(AccountRepository accountRepository) {
-        this.accountRepository = accountRepository;
-    }
-
     @Override
-    public TransactionResultDTO deposit(TransactionRequestDTO request, Long customerId) {
+    public TransactionResponseDTO deposit(TransactionRequestDTO request, Long customerId) {
         logger.info("Deposit request for account {} by customer {}", request.getAccountNumber(), customerId);
 
         if (!request.getAccountNumber().equals(request.getConfirmAccountNumber())) {
@@ -67,7 +65,7 @@ public class DepositServiceImpl implements DepositService {
 
 
 
-            TransactionResultDTO response = new TransactionResultDTO();
+            TransactionResponseDTO response = new TransactionResponseDTO();
             response.setMessage("Deposit failed: Amount must be greater than 0");
             return response;
         }
@@ -80,7 +78,7 @@ public class DepositServiceImpl implements DepositService {
         account.getTransactions().add(transaction);
         accountRepository.save(account);
 
-        TransactionResultDTO response = new TransactionResultDTO();
+        TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("₹" + request.getAmount() + " credited successfully in your account");
         return response;
     }
