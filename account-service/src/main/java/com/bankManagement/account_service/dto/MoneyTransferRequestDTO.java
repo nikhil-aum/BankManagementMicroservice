@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @AllArgsConstructor
-public class MoneyTransferDTO {
+public class MoneyTransferRequestDTO {
     @NotBlank(message = "Sender account number is required")
     private String senderAccountNumber;
 

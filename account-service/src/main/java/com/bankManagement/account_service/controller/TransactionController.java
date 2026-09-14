@@ -1,7 +1,7 @@
 package com.bankManagement.account_service.controller;
 
 
-import com.bankManagement.account_service.dto.TransactionHistoryDTO;
+import com.bankManagement.account_service.dto.TransactionHistoryResponseDTO;
 import com.bankManagement.account_service.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +27,7 @@ public class TransactionController {
 
     @GetMapping("/{accountNumber}/transactions")
     @Operation(summary = "Get All Transaction History")
-    public ResponseEntity<List<TransactionHistoryDTO>> getTransactionHistory(
+    public ResponseEntity<List<TransactionHistoryResponseDTO>> getTransactionHistory(
             @PathVariable String accountNumber,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status,
@@ -39,7 +39,7 @@ public class TransactionController {
         logger.info("Transaction history request received for accountNumber={}, customerId={}, type={}, status={}, amount={}, from={}, to={}",
                 accountNumber, authenticatedCustomerId, type, status, amount, from, to);
 
-        List<TransactionHistoryDTO> response = transactionService.getTransactionHistory(
+        List<TransactionHistoryResponseDTO> response = transactionService.getTransactionHistory(
                 accountNumber, authenticatedCustomerId, type, status, amount, from, to);
 
         logger.info("Transaction history fetched successfully for accountNumber={}, customerId={}, totalRecords={}",

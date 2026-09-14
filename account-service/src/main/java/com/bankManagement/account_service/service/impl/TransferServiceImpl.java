@@ -1,9 +1,9 @@
     package com.bankManagement.account_service.service.impl;
 
 
-    import com.bankManagement.account_service.dto.CustomerExistsDTO;
-    import com.bankManagement.account_service.dto.MoneyTransferDTO;
-    import com.bankManagement.account_service.dto.TransactionResultDTO;
+    import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
+    import com.bankManagement.account_service.dto.MoneyTransferRequestDTO;
+    import com.bankManagement.account_service.dto.TransactionResponseDTO;
     import com.bankManagement.account_service.entity.Account;
     import com.bankManagement.account_service.entity.Transaction;
     import com.bankManagement.account_service.entity.TransactionStatus;
@@ -29,7 +29,7 @@
 
 
         @Override
-        public TransactionResultDTO transfer(MoneyTransferDTO request, Long customerId) {
+        public TransactionResponseDTO transfer(MoneyTransferRequestDTO request, Long customerId) {
             logger.info("Transfer request: Sender={}, Recipient={}, Amount={}",
                     request.getSenderAccountNumber(), request.getRecipientAccountNumber(), request.getAmount());
 
@@ -131,10 +131,10 @@
                     request.getAmount(), sender.getAccountNumber(), recipient.getAccountNumber(),
                     sender.getBalance(), recipient.getBalance());
 
-            CustomerExistsDTO senderCustomer = customerClient.customerExists(sender.getCustomerId());
-            CustomerExistsDTO recipientCustomer = customerClient.customerExists(recipient.getCustomerId());
+            CustomerExistsResponseDTO senderCustomer = customerClient.customerExists(sender.getCustomerId());
+            CustomerExistsResponseDTO recipientCustomer = customerClient.customerExists(recipient.getCustomerId());
 
-            TransactionResultDTO response = new TransactionResultDTO();
+            TransactionResponseDTO response = new TransactionResponseDTO();
             response.setMessage("₹" + request.getAmount()
                     + " transferred successfully from " + senderCustomer.getCustomerName()
                     + " to " + recipientCustomer.getCustomerName());

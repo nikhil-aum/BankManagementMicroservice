@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @AllArgsConstructor
-public class TransactionHistoryDTO {
+public class TransactionHistoryResponseDTO {
     private Long id;
     private String type;
     private BigDecimal amount;

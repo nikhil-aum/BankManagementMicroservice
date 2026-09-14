@@ -1,7 +1,7 @@
 package com.bankManagement.account_service.service.impl;
 
 import com.bankManagement.account_service.dto.TransactionRequestDTO;
-import com.bankManagement.account_service.dto.TransactionResultDTO;
+import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.Transaction;
 import com.bankManagement.account_service.entity.TransactionStatus;
@@ -11,7 +11,6 @@ import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.WithdrawService;
 import lombok.AllArgsConstructor;
-import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,7 +26,7 @@ public class WithdrawServiceImpl implements WithdrawService {
     private final AccountRepository accountRepository;
 
     @Override
-    public TransactionResultDTO withdraw(TransactionRequestDTO request, Long customerId) {
+    public TransactionResponseDTO withdraw(TransactionRequestDTO request, Long customerId) {
         logger.info("Withdraw request for account {} by customer {}", request.getAccountNumber(), customerId);
 
         if (!request.getAccountNumber().equals(request.getConfirmAccountNumber())) {
@@ -64,7 +63,7 @@ public class WithdrawServiceImpl implements WithdrawService {
             account.getTransactions().add(transaction);
             accountRepository.save(account);
 
-            TransactionResultDTO response = new TransactionResultDTO();
+            TransactionResponseDTO response = new TransactionResponseDTO();
             response.setMessage("Withdraw failed: Amount must be greater than 0");
             return response;
         }
@@ -92,7 +91,7 @@ public class WithdrawServiceImpl implements WithdrawService {
         account.getTransactions().add(transaction);
         accountRepository.save(account);
 
-        TransactionResultDTO response = new TransactionResultDTO();
+        TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("₹" + request.getAmount() + " debited successfully from your account");
         return response;
     }

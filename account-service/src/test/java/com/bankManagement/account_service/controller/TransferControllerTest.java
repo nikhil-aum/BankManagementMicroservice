@@ -1,10 +1,8 @@
 package com.bankManagement.account_service.controller;
 
-import com.bankManagement.account_service.dto.CustomerExistsDTO;
+import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.AccountType;
-import com.bankManagement.account_service.entity.TransactionStatus;
-import com.bankManagement.account_service.entity.TransactionType;
 import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,10 +59,10 @@ class TransferControllerTest {
         accountRepository.save(sender);
         accountRepository.save(receiver);
 
-        CustomerExistsDTO senderCustomer = new CustomerExistsDTO();
+        CustomerExistsResponseDTO senderCustomer = new CustomerExistsResponseDTO();
         senderCustomer.setCustomerName("Nikhil");
 
-        CustomerExistsDTO receiverCustomer = new CustomerExistsDTO();
+        CustomerExistsResponseDTO receiverCustomer = new CustomerExistsResponseDTO();
         receiverCustomer.setCustomerName("Rahul");
 
         when(customerClient.customerExists(1L))

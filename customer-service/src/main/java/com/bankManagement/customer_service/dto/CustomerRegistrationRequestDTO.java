@@ -13,7 +13,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class CustomerRegistrationDTO {
+public class CustomerRegistrationRequestDTO {
 
     @NotBlank(message="Name is required")
     @Pattern(

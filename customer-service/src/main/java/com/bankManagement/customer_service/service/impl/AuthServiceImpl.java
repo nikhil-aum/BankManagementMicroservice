@@ -1,13 +1,12 @@
 package com.bankManagement.customer_service.service.impl;
 
-import com.bankManagement.customer_service.dto.CustomerLoginDTO;
-import com.bankManagement.customer_service.dto.CustomerRegistrationDTO;
+import com.bankManagement.customer_service.dto.CustomerLoginRequestDTO;
+import com.bankManagement.customer_service.dto.CustomerRegistrationRequestDTO;
 import com.bankManagement.customer_service.entity.Customer;
 import com.bankManagement.customer_service.exception.DuplicateCustomerException;
 import com.bankManagement.customer_service.exception.InvalidCredentialsException;
 import com.bankManagement.customer_service.repository.CustomerRepository;
 import com.bankManagement.customer_service.service.AuthService;
-import com.bankManagement.customer_service.service.impl.JwtService;
 
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -30,7 +29,7 @@ public class AuthServiceImpl implements AuthService {
 
 
     @Override
-    public void register(CustomerRegistrationDTO request) {
+    public void register(CustomerRegistrationRequestDTO request) {
 
         logger.info("Registering new customer with email {}", request.getEmail());
 
@@ -48,7 +47,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String login(CustomerLoginDTO request) {
+    public String login(CustomerLoginRequestDTO request) {
 
         Customer customer = repository.findByEmail(request.getEmail()).orElseThrow(() ->
                 new InvalidCredentialsException());

@@ -1,7 +1,7 @@
 package com.bankManagement.account_service.controller;
 
-import com.bankManagement.account_service.dto.CreateAccountDTO;
-import com.bankManagement.account_service.dto.CustomerExistsDTO;
+import com.bankManagement.account_service.dto.CreateAccountRequestDTO;
+import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.AccountType;
 import com.bankManagement.account_service.feign.CustomerClient;
@@ -55,9 +55,9 @@ public class AccountControllerTest {
     @Test
     void createAccount_success() throws Exception {
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Vishal", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Vishal", true));
 
-        CreateAccountDTO request = new CreateAccountDTO();
+        CreateAccountRequestDTO request = new CreateAccountRequestDTO();
         request.setAccountType(AccountType.SAVING);
 
         mockMvc.perform(post("/api/accounts/create")
@@ -72,9 +72,9 @@ public class AccountControllerTest {
     @Test
     void createAccount_nullAccountType() throws Exception {
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
-        CreateAccountDTO request = new CreateAccountDTO();
+        CreateAccountRequestDTO request = new CreateAccountRequestDTO();
         request.setAccountType(null);
 
         mockMvc.perform(post("/api/accounts/create")
@@ -87,9 +87,9 @@ public class AccountControllerTest {
     @Test
     void createAccount_MissingHeader() throws Exception {
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
-        CreateAccountDTO request = new CreateAccountDTO();
+        CreateAccountRequestDTO request = new CreateAccountRequestDTO();
         request.setAccountType(AccountType.CURRENT);
 
         mockMvc.perform(post("/api/accounts/create")
@@ -103,7 +103,7 @@ public class AccountControllerTest {
     @Test
     void checkBalance_Success() throws Exception {
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
         Account account = new Account();
         account.setAccountNumber("ACC12345");
@@ -131,7 +131,7 @@ public class AccountControllerTest {
     @Test
     void checkBalance_InvalidAccount_ShouldReturnError() throws Exception {
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
         String invalidAccountNumber = "76786849";
 
@@ -145,7 +145,7 @@ public class AccountControllerTest {
     void getMyAccounts_Success() throws Exception {
 
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
         Account account = new Account();
         account.setAccountNumber("ACC12345");
@@ -175,7 +175,7 @@ public class AccountControllerTest {
     void getMyAccounts_NoAccountsFound() throws Exception {
 
         when(customerClient.customerExists(1L))
-                .thenReturn(new CustomerExistsDTO(1L, "Nikhil", true));
+                .thenReturn(new CustomerExistsResponseDTO(1L, "Nikhil", true));
 
         mockMvc.perform(get("/api/accounts/customer/{customerId}", 1L)
                         .header("X-Customer-Id", 1L))

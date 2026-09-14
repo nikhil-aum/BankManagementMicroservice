@@ -1,9 +1,7 @@
 package com.bankManagement.account_service.service.impl;
 
 
-import com.bankManagement.account_service.dto.MoneyTransferDTO;
-import com.bankManagement.account_service.dto.TransactionHistoryDTO;
-import com.bankManagement.account_service.dto.TransactionResultDTO;
+import com.bankManagement.account_service.dto.TransactionHistoryResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.TransactionStatus;
 import com.bankManagement.account_service.entity.TransactionType;
@@ -11,13 +9,11 @@ import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.TransactionService;
-import com.bankManagement.account_service.service.TransferService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import javax.security.auth.login.AccountNotFoundException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -31,7 +27,7 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public List<TransactionHistoryDTO> getTransactionHistory(
+    public List<TransactionHistoryResponseDTO> getTransactionHistory(
             String accountNumber,
             Long customerId,
             String type,
@@ -55,7 +51,7 @@ public class TransactionServiceImpl implements TransactionService {
             throw new AccountOwnershipException();
         }
 
-        List<TransactionHistoryDTO> transactions = account.getTransactions().stream()
+        List<TransactionHistoryResponseDTO> transactions = account.getTransactions().stream()
                 .filter(tx -> {
                     boolean matches = true;
 
@@ -93,7 +89,7 @@ public class TransactionServiceImpl implements TransactionService {
 
                     return matches;
                 })
-                .map(tx -> new TransactionHistoryDTO(
+                .map(tx -> new TransactionHistoryResponseDTO(
                         tx.getId(),
                         tx.getType().name(),
                         tx.getAmount(),

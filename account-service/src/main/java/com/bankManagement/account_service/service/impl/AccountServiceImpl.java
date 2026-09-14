@@ -28,11 +28,11 @@ public class AccountServiceImpl implements AccountService {
 
 
     @Override
-    public AccountDetailsDTO createAccount(CreateAccountDTO request, Long customerId) {
+    public AccountDetailsResponseDTO createAccount(CreateAccountRequestDTO request, Long customerId) {
 
         logger.info("Creating account of type {} for customer {}", request.getAccountType(), customerId);
 
-        CustomerExistsDTO  dto = customerClient.customerExists(customerId);
+        CustomerExistsResponseDTO dto = customerClient.customerExists(customerId);
         if (!dto.isExists()) {
             throw new BankingException("Customer not found");
         }
@@ -59,7 +59,7 @@ public class AccountServiceImpl implements AccountService {
         logger.info("Account {} created successfully for customer {}", savedAccount.getAccountNumber(), customerId);
 
 
-        AccountDetailsDTO response = new AccountDetailsDTO();
+        AccountDetailsResponseDTO response = new AccountDetailsResponseDTO();
         response.setAccountNumber(savedAccount.getAccountNumber());
         response.setAccountType(savedAccount.getAccountType().name());
         response.setBalance(savedAccount.getBalance());
@@ -69,7 +69,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public TransactionResultDTO checkBalance(String accountNumber, Long customerId) {
+    public TransactionResponseDTO checkBalance(String accountNumber, Long customerId) {
         Account account = accountRepository.findById(accountNumber)
                 .orElseThrow(() -> {
                     logger.error("Account not found with number {}", accountNumber);
@@ -83,18 +83,18 @@ public class AccountServiceImpl implements AccountService {
 
         logger.info("Balance for account {} is {}", accountNumber, account.getBalance());
 
-        TransactionResultDTO response = new TransactionResultDTO();
+        TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("Balance in your Account : " + account.getBalance());
 
         return response;
     }
 
     @Override
-    public List<AccountListDTO> getMyAccounts(Long customerId) {
+    public List<AccountListResponseDTO> getMyAccounts(Long customerId) {
         logger.info("Fetching accounts for customerId: {}", customerId);
 
-        List<AccountListDTO> accounts = accountRepository.findByCustomerId(customerId).stream()
-                .map(acc -> new AccountListDTO(
+        List<AccountListResponseDTO> accounts = accountRepository.findByCustomerId(customerId).stream()
+                .map(acc -> new AccountListResponseDTO(
                         acc.getAccountNumber(),
                         acc.getCustomerId(),
                         acc.getBalance(),

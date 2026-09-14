@@ -1,8 +1,7 @@
 package com.bankManagement.account_service.controller;
 
 import com.bankManagement.account_service.dto.TransactionRequestDTO;
-import com.bankManagement.account_service.dto.TransactionResultDTO;
-import com.bankManagement.account_service.service.DepositService;
+import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.service.WithdrawService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,12 +22,12 @@ public class WithdrawController {
 
     @PostMapping
     @Operation(summary = "Withdraw money")
-    public ResponseEntity<TransactionResultDTO> withdraw(@RequestBody TransactionRequestDTO request,
-                                                        @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
+    public ResponseEntity<TransactionResponseDTO> withdraw(@RequestBody TransactionRequestDTO request,
+                                                           @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
         logger.info("Withdraw request received for customerId: {}", authenticatedCustomerId);
 
 
-        TransactionResultDTO result = withdrawService.withdraw(request, authenticatedCustomerId);
+        TransactionResponseDTO result = withdrawService.withdraw(request, authenticatedCustomerId);
 
         logger.info("Withdraw response: {}", result.getMessage());
         return ResponseEntity.ok(result);
