@@ -13,6 +13,7 @@
     import com.bankManagement.account_service.feign.CustomerClient;
     import com.bankManagement.account_service.repository.AccountRepository;
     import com.bankManagement.account_service.service.TransferService;
+    import lombok.AllArgsConstructor;
     import org.slf4j.Logger;
     import org.slf4j.LoggerFactory;
     import org.springframework.stereotype.Service;
@@ -20,15 +21,11 @@
     import java.math.BigDecimal;
 
     @Service
+    @AllArgsConstructor
     public class TransferServiceImpl implements TransferService {
         private static final Logger logger = LoggerFactory.getLogger(TransferServiceImpl.class);
         private final AccountRepository accountRepository;
         private final CustomerClient customerClient;
-
-        public TransferServiceImpl(AccountRepository accountRepository, CustomerClient customerClient){
-            this.accountRepository=accountRepository;
-            this.customerClient=customerClient;
-        }
 
 
         @Override

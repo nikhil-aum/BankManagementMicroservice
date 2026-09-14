@@ -10,6 +10,7 @@ import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.DepositService;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,15 +18,12 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 @Service
+@AllArgsConstructor
 public class DepositServiceImpl implements DepositService {
 
     private static final Logger logger = LoggerFactory.getLogger(DepositServiceImpl.class);
 
     private final AccountRepository accountRepository;
-
-    public DepositServiceImpl(AccountRepository accountRepository) {
-        this.accountRepository = accountRepository;
-    }
 
     @Override
     public TransactionResultDTO deposit(TransactionRequestDTO request, Long customerId) {

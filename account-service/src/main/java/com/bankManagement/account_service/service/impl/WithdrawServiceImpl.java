@@ -10,6 +10,7 @@ import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.WithdrawService;
+import lombok.AllArgsConstructor;
 import lombok.With;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,15 +19,12 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 @Service
+@AllArgsConstructor
 public class WithdrawServiceImpl implements WithdrawService {
 
     private static final Logger logger = LoggerFactory.getLogger(WithdrawServiceImpl.class);
 
     private final AccountRepository accountRepository;
-
-    public WithdrawServiceImpl(AccountRepository accountRepository){
-        this.accountRepository=accountRepository;
-    }
 
     @Override
     public TransactionResultDTO withdraw(TransactionRequestDTO request, Long customerId) {

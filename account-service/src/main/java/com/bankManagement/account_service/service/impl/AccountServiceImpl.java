@@ -8,6 +8,7 @@ import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.AccountService;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import java.security.SecureRandom;
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class AccountServiceImpl implements AccountService {
     private static final Logger logger = LoggerFactory.getLogger(AccountServiceImpl.class);
 
@@ -24,10 +26,6 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
     private final CustomerClient customerClient;
 
-    public AccountServiceImpl(AccountRepository accountRepository,CustomerClient customerClient){
-        this.accountRepository = accountRepository;
-        this.customerClient = customerClient;
-    }
 
     @Override
     public AccountDetailsDTO createAccount(CreateAccountDTO request, Long customerId) {

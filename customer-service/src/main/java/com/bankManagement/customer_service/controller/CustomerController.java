@@ -4,23 +4,19 @@ package com.bankManagement.customer_service.controller;
 import com.bankManagement.customer_service.dto.CustomerExistsDTO;
 import com.bankManagement.customer_service.entity.Customer;
 import com.bankManagement.customer_service.repository.CustomerRepository;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/customers")
+@AllArgsConstructor
 public class CustomerController {
 
     private final CustomerRepository repository;
 
     private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
-
-    public CustomerController(
-            CustomerRepository repository) {
-
-        this.repository = repository;
-    }
 
     @GetMapping("/{id}/exists")
     public CustomerExistsDTO exists(@PathVariable Long id) {

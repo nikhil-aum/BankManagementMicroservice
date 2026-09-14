@@ -6,6 +6,7 @@ import com.bankManagement.account_service.dto.CreateAccountDTO;
 import com.bankManagement.account_service.dto.TransactionResultDTO;
 import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.service.AccountService;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -15,14 +16,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/accounts")
+@AllArgsConstructor
 public class AccountController {
 
     private final AccountService accountService;
     private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
-    public AccountController(AccountService accountService) {
-        this.accountService = accountService;
-    }
 
     @PostMapping("/create")
     public ResponseEntity<AccountDetailsDTO> createAccount(
@@ -30,8 +29,6 @@ public class AccountController {
             @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
 
         logger.info("Create account request received for customerId: {}", authenticatedCustomerId);
-
-
 
         AccountDetailsDTO account = accountService.createAccount(request, authenticatedCustomerId);
 

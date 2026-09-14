@@ -5,6 +5,7 @@ import com.bankManagement.account_service.dto.TransactionHistoryDTO;
 import com.bankManagement.account_service.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -15,16 +16,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/accounts")
 @Tag(name = "Transactions", description = "Transaction APIs")
+@AllArgsConstructor
 public class TransactionController {
 
     private final TransactionService transactionService;
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
 
-
-    public TransactionController(TransactionService transactionService) {
-        this.transactionService = transactionService;
-    }
 
 
     @GetMapping("/{accountNumber}/transactions")

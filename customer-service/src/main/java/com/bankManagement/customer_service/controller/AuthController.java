@@ -18,15 +18,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@AllArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
 
     @PostMapping("/register")
     @Operation(summary = "Register new customer")
