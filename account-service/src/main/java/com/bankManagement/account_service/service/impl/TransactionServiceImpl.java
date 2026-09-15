@@ -1,12 +1,13 @@
 package com.bankManagement.account_service.service.impl;
 
-
+import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
 import com.bankManagement.account_service.dto.TransactionHistoryResponseDTO;
 import com.bankManagement.account_service.entity.Account;
 import com.bankManagement.account_service.entity.TransactionStatus;
 import com.bankManagement.account_service.entity.TransactionType;
 import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
+import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.TransactionService;
 import lombok.AllArgsConstructor;
@@ -23,21 +24,30 @@ import java.util.List;
 public class TransactionServiceImpl implements TransactionService {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
-    private final AccountRepository accountRepository;
 
+    private final AccountRepository accountRepository;
+    private final CustomerClient customerClient;
 
     @Override
     public List<TransactionHistoryResponseDTO> getTransactionHistory(
             String accountNumber,
-            Long customerId,
+            String customerEmail,
             String type,
             String status,
             Double amount,
             String from,
             String to) {
 
-        logger.info("Fetching transaction history for accountNumber={}, customerId={}, type={}, status={}, amount={}, from={}, to={}",
-                accountNumber, customerId, type, status, amount, from, to);
+        logger.info("Fetching transaction history for accountNumber={}, customerEmail={}, type={}, status={}, amount={}, from={}, to={}",
+                accountNumber, customerEmail, type, status, amount, from, to);
+
+        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
+            logger.error("Customer not found with email: {}", customerEmail);
+            throw new BankingException("Customer not found with email: " + customerEmail);
+        }
+
+        Long customerId = customerDto.getCustomerId();
 
         Account account = accountRepository.findById(accountNumber)
                 .orElseThrow(() -> {
@@ -105,6 +115,4 @@ public class TransactionServiceImpl implements TransactionService {
 
         return transactions;
     }
-
-
 }

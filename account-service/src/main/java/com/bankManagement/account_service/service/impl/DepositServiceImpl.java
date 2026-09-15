@@ -1,5 +1,6 @@
 package com.bankManagement.account_service.service.impl;
 
+import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
 import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.entity.Account;
@@ -8,6 +9,7 @@ import com.bankManagement.account_service.entity.TransactionStatus;
 import com.bankManagement.account_service.entity.TransactionType;
 import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
+import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.DepositService;
 import lombok.AllArgsConstructor;
@@ -24,10 +26,19 @@ public class DepositServiceImpl implements DepositService {
     private static final Logger logger = LoggerFactory.getLogger(DepositServiceImpl.class);
 
     private final AccountRepository accountRepository;
+    private final CustomerClient customerClient;
 
     @Override
-    public TransactionResponseDTO deposit(TransactionRequestDTO request, Long customerId) {
-        logger.info("Deposit request for account {} by customer {}", request.getAccountNumber(), customerId);
+    public TransactionResponseDTO deposit(TransactionRequestDTO request, String customerEmail) {
+        logger.info("Deposit request for account {} by email {}", request.getAccountNumber(), customerEmail);
+
+        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
+            logger.error("Customer not found or invalid response for email {}", customerEmail);
+            throw new BankingException("Customer not found with email: " + customerEmail);
+        }
+
+        Long customerId = customerDto.getCustomerId();
 
         if (!request.getAccountNumber().equals(request.getConfirmAccountNumber())) {
             logger.error("Account number mismatch: {} & {}",
@@ -42,7 +53,7 @@ public class DepositServiceImpl implements DepositService {
                 });
 
         if (!account.getCustomerId().equals(customerId)) {
-            logger.warn("Ownership mismatch for account {} and customer {}", request.getAccountNumber(), customerId);
+            logger.warn("Ownership mismatch for account {} and customer ID {}", request.getAccountNumber(), customerId);
             throw new AccountOwnershipException();
         }
 
@@ -62,8 +73,6 @@ public class DepositServiceImpl implements DepositService {
 
             account.getTransactions().add(transaction);
             accountRepository.save(account);
-
-
 
             TransactionResponseDTO response = new TransactionResponseDTO();
             response.setMessage("Deposit failed: Amount must be greater than 0");

@@ -1,6 +1,5 @@
 package com.bankManagement.account_service.controller;
 
-
 import com.bankManagement.account_service.dto.TransactionHistoryResponseDTO;
 import com.bankManagement.account_service.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,10 +19,7 @@ import java.util.List;
 public class TransactionController {
 
     private final TransactionService transactionService;
-
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
-
-
 
     @GetMapping("/{accountNumber}/transactions")
     @Operation(summary = "Get All Transaction History")
@@ -34,18 +30,17 @@ public class TransactionController {
             @RequestParam(required = false) Double amount,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
+            @RequestHeader("X-Customer-Email") String authenticatedCustomerEmail) {
 
-        logger.info("Transaction history request received for accountNumber={}, customerId={}, type={}, status={}, amount={}, from={}, to={}",
-                accountNumber, authenticatedCustomerId, type, status, amount, from, to);
+        logger.info("Transaction history request received for accountNumber={}, customerEmail={}, type={}, status={}, amount={}, from={}, to={}",
+                accountNumber, authenticatedCustomerEmail, type, status, amount, from, to);
 
         List<TransactionHistoryResponseDTO> response = transactionService.getTransactionHistory(
-                accountNumber, authenticatedCustomerId, type, status, amount, from, to);
+                accountNumber, authenticatedCustomerEmail, type, status, amount, from, to);
 
-        logger.info("Transaction history fetched successfully for accountNumber={}, customerId={}, totalRecords={}",
-                accountNumber, authenticatedCustomerId, response.size());
+        logger.info("Transaction history fetched successfully for accountNumber={}, customerEmail={}, totalRecords={}",
+                accountNumber, authenticatedCustomerEmail, response.size());
 
         return ResponseEntity.ok(response);
     }
-
 }

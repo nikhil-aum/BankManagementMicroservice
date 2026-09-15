@@ -1,7 +1,5 @@
 package com.bankManagement.customer_service.controller;
 
-import com.bankManagement.customer_service.dto.CustomerLoginRequestDTO;
-import com.bankManagement.customer_service.dto.CustomerRegistrationRequestDTO;
 import com.bankManagement.customer_service.entity.Customer;
 import com.bankManagement.customer_service.repository.CustomerRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;

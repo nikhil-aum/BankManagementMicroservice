@@ -6,33 +6,33 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @Component
-public class OAuthAuthenticationFilter implements GlobalFilter, Ordered{
+public class OAuth2HeaderFilter implements GlobalFilter, Ordered {
 
-    private static final Logger logger = LoggerFactory.getLogger(OAuthAuthenticationFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(OAuth2HeaderFilter.class);
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         return ReactiveSecurityContextHolder.getContext()
-                .map(securityContext -> securityContext.getAuthentication().getPrincipal())
-                .filter(principal -> principal instanceof Jwt)
-                .cast(Jwt.class)
-                .flatMap(jwt -> {
+                .filter(c -> c.getAuthentication() instanceof OAuth2AuthenticationToken)
+                .map(c -> (OAuth2AuthenticationToken) c.getAuthentication())
+                .flatMap(oauthToken -> {
+                    OAuth2User user = oauthToken.getPrincipal();
+                    String email = user.getAttribute("email");
+                    String name = user.getAttribute("name");
 
-                    String email = jwt.getClaimAsString("email");
-                    String googleUserId = jwt.getSubject();
-
-                    logger.info("Google OAuth JWT Validated successfully. Email: {}, Google ID: {}", email, googleUserId);
+                    logger.info("Relaying authenticated Google user: {}", email);
 
                     ServerWebExchange mutatedExchange = exchange.mutate()
                             .request(r -> r
-                                    .header("X-Customer-Email", email)
-                                    .header("X-Google-User-Id", googleUserId)
+                                    .header("X-Customer-Email", email != null ? email : "")
+                                    .header("X-Customer-Name", name != null ? name : "")
                             )
                             .build();
 
@@ -43,7 +43,6 @@ public class OAuthAuthenticationFilter implements GlobalFilter, Ordered{
 
     @Override
     public int getOrder() {
-
         return 0;
     }
 }

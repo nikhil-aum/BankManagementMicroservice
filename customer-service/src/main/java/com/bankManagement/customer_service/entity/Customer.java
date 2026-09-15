@@ -24,14 +24,14 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+
     private String name;
 
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
-    private String password;
+//    @Column(unique = true)
+//    private String googleId;
 
     @CreationTimestamp
     private LocalDateTime createdDate;

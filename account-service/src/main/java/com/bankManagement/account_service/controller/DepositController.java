@@ -13,22 +13,22 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/deposit")
-@Tag(name = " Deposit", description = "Deposit APIs")
+@Tag(name = "Deposit", description = "Deposit APIs")
 @AllArgsConstructor
 public class DepositController {
 
     private final DepositService depositService;
     private static final Logger logger = LoggerFactory.getLogger(DepositController.class);
 
-
     @PostMapping
     @Operation(summary = "Deposit money")
-    public ResponseEntity<TransactionResponseDTO> deposit(@RequestBody TransactionRequestDTO request,
-                                                          @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
-        logger.info("Deposit request received for customerId: {}", authenticatedCustomerId);
+    public ResponseEntity<TransactionResponseDTO> deposit(
+            @RequestBody TransactionRequestDTO request,
+            @RequestHeader("X-Customer-Email") String authenticatedCustomerEmail) {
 
+        logger.info("Deposit request received for customer email: {}", authenticatedCustomerEmail);
 
-        TransactionResponseDTO result = depositService.deposit(request, authenticatedCustomerId);
+        TransactionResponseDTO result = depositService.deposit(request, authenticatedCustomerEmail);
 
         logger.info("Deposit response: {}", result.getMessage());
         return ResponseEntity.ok(result);

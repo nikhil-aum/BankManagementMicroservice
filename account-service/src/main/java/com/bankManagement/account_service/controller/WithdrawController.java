@@ -16,18 +16,19 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Withdraw", description = "Withdraw APIs")
 @AllArgsConstructor
 public class WithdrawController {
+
     private final WithdrawService withdrawService;
     private static final Logger logger = LoggerFactory.getLogger(WithdrawController.class);
 
-
     @PostMapping
     @Operation(summary = "Withdraw money")
-    public ResponseEntity<TransactionResponseDTO> withdraw(@RequestBody TransactionRequestDTO request,
-                                                           @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
-        logger.info("Withdraw request received for customerId: {}", authenticatedCustomerId);
+    public ResponseEntity<TransactionResponseDTO> withdraw(
+            @RequestBody TransactionRequestDTO request,
+            @RequestHeader("X-Customer-Email") String authenticatedCustomerEmail) {
 
+        logger.info("Withdraw request received for customer email: {}", authenticatedCustomerEmail);
 
-        TransactionResponseDTO result = withdrawService.withdraw(request, authenticatedCustomerId);
+        TransactionResponseDTO result = withdrawService.withdraw(request, authenticatedCustomerEmail);
 
         logger.info("Withdraw response: {}", result.getMessage());
         return ResponseEntity.ok(result);
