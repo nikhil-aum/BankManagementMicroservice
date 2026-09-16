@@ -94,6 +94,8 @@ public class WithdrawServiceImpl implements WithdrawService {
             throw new BankingException("Withdrawal failed: Insufficient balance");
         }
 
+        logger.info("Initiating withdrawal of ₹{} from account number: {}", request.getAmount(), account.getAccountNumber());
+
         account.withdraw(request.getAmount());
         transaction.setDescription("₹" + request.getAmount() + " debited successfully");
         transaction.setBalanceAfterTransaction(account.getBalance());
@@ -101,6 +103,9 @@ public class WithdrawServiceImpl implements WithdrawService {
 
         account.getTransactions().add(transaction);
         accountRepository.save(account);
+
+        logger.info("Successfully debited ₹{}. Remaining balance for account {}: ₹{}",
+                request.getAmount(), account.getAccountNumber(), account.getBalance());
 
         TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("₹" + request.getAmount() + " debited successfully from your account");

@@ -4,6 +4,7 @@ import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.service.WithdrawService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -20,17 +21,15 @@ public class WithdrawController {
     private final WithdrawService withdrawService;
     private static final Logger logger = LoggerFactory.getLogger(WithdrawController.class);
 
+
     @PostMapping
     @Operation(summary = "Withdraw money")
-    public ResponseEntity<TransactionResponseDTO> withdraw(
+    public ResponseEntity<?> withdraw(
             @RequestBody TransactionRequestDTO request,
-            @RequestHeader("X-Customer-Email") String authenticatedCustomerEmail) {
+            @Parameter(hidden = true)
+            @RequestHeader(value = "X-Customer-Email", required = false) String authenticatedCustomerEmail) {
 
-        logger.info("Withdraw request received for customer email: {}", authenticatedCustomerEmail);
-
-        TransactionResponseDTO result = withdrawService.withdraw(request, authenticatedCustomerEmail);
-
-        logger.info("Withdraw response: {}", result.getMessage());
-        return ResponseEntity.ok(result);
+        logger.info("Processing withdraw request for email: {}", authenticatedCustomerEmail);
+        return ResponseEntity.ok(withdrawService.withdraw(request, authenticatedCustomerEmail));
     }
 }

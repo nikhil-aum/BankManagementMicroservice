@@ -79,6 +79,8 @@ public class DepositServiceImpl implements DepositService {
             return response;
         }
 
+        logger.info("Initiating deposit of ₹{} for account number: {}", request.getAmount(), account.getAccountNumber());
+
         account.deposit(request.getAmount());
         transaction.setDescription("₹" + request.getAmount() + " credited successfully");
         transaction.setBalanceAfterTransaction(account.getBalance());
@@ -86,6 +88,9 @@ public class DepositServiceImpl implements DepositService {
 
         account.getTransactions().add(transaction);
         accountRepository.save(account);
+
+        logger.info("Successfully deposited ₹{}. Updated balance for account {}: ₹{}",
+                request.getAmount(), account.getAccountNumber(), account.getBalance());
 
         TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("₹" + request.getAmount() + " credited successfully in your account");

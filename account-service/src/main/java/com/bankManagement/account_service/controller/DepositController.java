@@ -4,6 +4,7 @@ import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.service.DepositService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -22,15 +23,11 @@ public class DepositController {
 
     @PostMapping
     @Operation(summary = "Deposit money")
-    public ResponseEntity<TransactionResponseDTO> deposit(
+    public ResponseEntity<?> deposit(
             @RequestBody TransactionRequestDTO request,
-            @RequestHeader("X-Customer-Email") String authenticatedCustomerEmail) {
+            @Parameter(hidden = true)
+            @RequestHeader(value = "X-Customer-Email", required = false) String authenticatedCustomerEmail) {
 
-        logger.info("Deposit request received for customer email: {}", authenticatedCustomerEmail);
-
-        TransactionResponseDTO result = depositService.deposit(request, authenticatedCustomerEmail);
-
-        logger.info("Deposit response: {}", result.getMessage());
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(depositService.deposit(request, authenticatedCustomerEmail));
     }
 }
