@@ -1,8 +1,8 @@
-# MiniBank — Microservices Banking System
+# Bank Management System — Microservices Banking System
 
-A secure, distributed banking backend built by transforming the Phase 4 MiniBank monolith into an independently deployable microservices architecture.
+A secure, distributed banking backend built by transforming the Phase 4 Bank Management System monolith into an independently deployable microservices architecture.
 
-The system keeps the original banking business rules unchanged while separating responsibilities across dedicated services. Service discovery, centralized configuration, API routing, JWT-based security, inter-service communication, independent databases, and integration testing are used to demonstrate a production-style microservices design.
+The system keeps the original banking business rules unchanged while separating responsibilities across dedicated services. Service discovery, centralized configuration, API routing, OAuth 2.0 / Google OAuth 2.0 security, inter-service communication, independent databases, and integration testing are used to demonstrate a production-style microservices design.
 
 > **Learning note:** For an application of this size, a monolith is completely reasonable in a real-world environment. This microservices version is intentionally built to learn service boundaries, service discovery, API gateway routing, centralized configuration, and service-to-service communication.
 
@@ -23,14 +23,14 @@ The system keeps the original banking business rules unchanged while separating 
 - [Account Service](#account-service)
 - [API Gateway](#api-gateway)
 - [Authentication and Authorization](#authentication-and-authorization)
-- [JWT Flow](#jwt-flow)
+- [OAuth 2.0 Flow](#oauth-20-flow)
 - [Service Discovery with Eureka](#service-discovery-with-eureka)
 - [Inter-Service Communication](#inter-service-communication)
 - [Centralized Configuration](#centralized-configuration)
 - [Gateway Routing](#gateway-routing)
 - [API Endpoints](#api-endpoints)
 - [Business Rules](#business-rules)
-- [Customer Registration Rules](#customer-registration-rules)
+- [Customer Identity Rules](#customer-identity-rules)
 - [Account Rules](#account-rules)
 - [Deposit Rules](#deposit-rules)
 - [Withdrawal Rules](#withdrawal-rules)
@@ -64,7 +64,7 @@ The system keeps the original banking business rules unchanged while separating 
 
 # Project Overview
 
-MiniBank Phase 5 breaks the previous banking monolith into independently deployable services.
+Bank Management System Phase 5 breaks the previous banking monolith into independently deployable services.
 
 The system is organized as:
 
@@ -79,7 +79,7 @@ The system is organized as:
                               ┌──────────────────────┐
                               │     API Gateway      │
                               │       :8080          │
-                              │ Routing + JWT Auth    │
+                              │ Routing + Google OAuth 2.0    │
                               │     / Authorization  │
                               └──────────┬───────────┘
                                          │
@@ -93,7 +93,7 @@ The system is organized as:
                 │ Customer           │       │ Account            │
                 │ Registration       │       │ Transaction        │
                 │ Login              │       │ Deposit            │
-                │ JWT issuing        │       │ Withdrawal         │
+                │ Google OAuth 2.0 authentication        │       │ Withdrawal         │
                 │                    │       │ Transfer            │
                 └─────────┬──────────┘       │ Balance             │
                           │                  │ History             │
@@ -182,7 +182,7 @@ API Gateway
 The project contains the following independently runnable Maven applications:
 
 ```text
-minibank-microservices/
+bank-management-microservices/
 │
 ├── config-server/
 │
@@ -202,7 +202,7 @@ minibank-microservices/
 | `config-server` | Centralized application configuration | 8888 |
 | `discovery-server` | Eureka service registry | 8761 |
 | `api-gateway` | Routing, authentication and authorization | 8080 |
-| `customer-service` | Customer, registration, login and JWT issuing | 8081 |
+| `customer-service` | Customer domain and customer identity integration | 8081 |
 | `account-service` | Account, transactions and banking operations | 8082 |
 
 Each service is independently buildable and runnable.
@@ -212,7 +212,7 @@ Each service is independently buildable and runnable.
 # Project Structure
 
 ```text
-minibank-microservices
+bank-management-microservices
 │
 ├── config-server
 │   ├── pom.xml
@@ -304,7 +304,7 @@ Configuration that can be centralized includes:
 - Service names
 - Eureka configuration
 - Database configuration
-- JWT configuration
+- Google OAuth 2.0 configuration
 - Gateway configuration
 - Application-specific properties
 - Common environment-driven settings
@@ -341,7 +341,7 @@ The API Gateway is the single entry point for clients.
 Responsibilities:
 
 - Route incoming requests
-- Authenticate requests using JWT
+- Authenticate requests using Google OAuth 2.0
 - Apply authorization/security rules
 - Forward requests to the appropriate service
 - Use Eureka service IDs for routing
@@ -368,7 +368,7 @@ Responsibilities:
 - Duplicate email checking
 - Password hashing
 - Login
-- JWT issuing
+- Google OAuth 2.0 authentication
 - Customer existence verification
 - Customer database ownership
 
@@ -410,7 +410,7 @@ Splitting Account and Transaction into separate services would introduce distrib
 | Hibernate | ORM |
 | MySQL | Production/runtime databases |
 | Spring Security | Security |
-| JWT | Authentication token |
+| Google OAuth 2.0 | Authentication token |
 | BCrypt | Password hashing |
 | Spring Cloud Netflix Eureka | Service discovery |
 | Spring Cloud Gateway | API Gateway |
@@ -486,65 +486,22 @@ There are no cross-service JPA relationships.
 
 # Domain Boundaries
 
-## Customer Service Owns
+## Customer Service
 
-```text
-Customer
-```
+Customer Service owns the customer domain.
 
-Customer-related responsibilities:
+Responsibilities:
 
-```text
-Registration
-Login
-Password hashing
-JWT issuing
-Customer existence
-```
+- Customer profile/domain data
+- Customer identity mapping after Google OAuth 2.0 authentication
+- Customer existence verification
+- Customer database ownership
+- Customer-related validation required by the banking domain
 
-## Account Service Owns
+Authentication is delegated to Google through OAuth 2.0. The application does not maintain a local password-based login flow.
 
-```text
-Account
-Transaction
-```
+Customer Service does not own account or transaction tables.
 
-Account-related responsibilities:
-
-```text
-Account creation
-Balance
-Deposit
-Withdrawal
-Transfer
-Transaction history
-Transaction filtering
-Ownership checks
-```
-
----
-
-# Customer Service
-
-Customer Service contains the customer domain and authentication credential logic.
-
-## Customer Entity
-
-Typical customer information includes:
-
-```text
-id
-name
-email
-password
-createdDate
-```
-
-The password stored in the database is BCrypt encoded.
-
-The plain-text password is never persisted.
-
----
 
 # Account Service
 
@@ -591,7 +548,7 @@ This is a service boundary identifier, not a JPA relationship.
 
 # API Gateway
 
-The Gateway provides a single public API.
+The Gateway provides a single public API and acts as the external security boundary.
 
 ```text
 Client
@@ -599,18 +556,23 @@ Client
   ▼
 Gateway :8080
   │
-  ├── /api/auth/**       → customer-service
-  ├── /api/customers/**  → customer-service
-  └── /api/accounts/**   → account-service
+  ├── OAuth 2.0 / Google login
+  ├── Authentication
+  ├── Authorization
+  │
+  ├── /api/customers/** → customer-service
+  └── /api/accounts/**  → account-service
 ```
 
 The Gateway is responsible for:
 
 - Routing
-- JWT authentication
+- Integrating Google OAuth 2.0 login through Spring Security
+- Authentication
 - Authorization/security filtering
-- Handling invalid/unauthenticated requests
-- Returning clean routing errors
+- Handling unauthenticated requests
+- Forwarding authenticated requests
+- Handling clean routing errors
 
 The Gateway is **not** responsible for:
 
@@ -623,7 +585,6 @@ The Gateway is **not** responsible for:
 
 Those rules remain in Account Service.
 
----
 
 # Authentication and Authorization
 
@@ -641,20 +602,20 @@ POST /api/auth/login
 Customer Service
    │
    ▼
-JWT generated
+Google OAuth 2.0 generated
    │
    ▼
-Client receives JWT
+Client receives Google OAuth 2.0
    │
    ▼
 Client sends:
-Authorization: Bearer <JWT>
+Authorization: Bearer <Google OAuth 2.0>
    │
    ▼
 API Gateway
    │
    ▼
-JWT authentication / authorization
+OAuth 2.0 authentication / authorization
    │
    ├── Invalid / missing token
    │          │
@@ -670,13 +631,13 @@ JWT authentication / authorization
        Target Microservice
 ```
 
-JWT issuing remains part of Customer Service because Customer Service owns customer authentication credentials.
+Google OAuth 2.0 authentication remains part of Customer Service because Customer Service owns customer authentication credentials.
 
 The Gateway performs the external request security check before forwarding protected requests.
 
 ---
 
-# JWT Flow
+# Google OAuth 2.0 Flow
 
 ```text
 1. Customer registers
@@ -687,13 +648,13 @@ The Gateway performs the external request security check before forwarding prote
           ↓
 4. Customer Service validates credentials
           ↓
-5. Customer Service generates JWT
+5. Customer Service generates Google OAuth 2.0
           ↓
-6. Client receives JWT
+6. Client receives Google OAuth 2.0
           ↓
 7. Client sends Bearer token to Gateway
           ↓
-8. Gateway validates JWT
+8. Gateway validates Google OAuth 2.0
           ↓
 9. Valid request is routed
           ↓
@@ -703,50 +664,56 @@ The Gateway performs the external request security check before forwarding prote
 Protected request:
 
 ```http
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 ```
 
-The JWT should contain enough information for downstream ownership/security decisions, such as the authenticated customer identifier.
+The Google OAuth 2.0 should contain enough information for downstream ownership/security decisions, such as the authenticated customer identifier.
 
 ---
 
-# Shared JWT Secret
+# Google OAuth 2.0 Configuration
 
-For this educational implementation, services that need to validate the JWT use the same signing secret supplied through configuration/environment variables.
+Google OAuth 2.0 client configuration is required for the login flow.
 
-The secret must never be hardcoded in Java source code.
+Typical configuration values are:
+
+```text
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+```
+
+The credentials should be injected through environment variables or a secure configuration mechanism.
 
 Example:
 
 ```text
-JWT_SECRET=<secure-secret>
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-This shared-secret approach is a simplification for the project.
+Do not commit real Google client secrets to GitHub.
 
-A production architecture would commonly use asymmetric cryptography:
+### OAuth 2.0 Security Model
 
 ```text
-Customer Service
-      │
-      │ signs
-      ▼
-Private Key
-      │
-      ▼
-JWT
-      │
-      ▼
-Gateway / Other Services
-      │
-      │ verifies
-      ▼
-Public Key
+Google
+  │
+  │ authenticates user
+  ▼
+OAuth 2.0 Authorization Code
+  │
+  ▼
+Spring Security OAuth2 Client
+  │
+  ▼
+Authenticated Application User
+  │
+  ▼
+Protected Banking APIs
 ```
 
-This avoids distributing a signing secret to every verifier.
+Google remains the identity provider. The application does not receive or store the user's Google password.
 
----
 
 # Ownership Authorization
 
@@ -923,7 +890,7 @@ spring.application.name
 server.port
 database settings
 Eureka settings
-JWT settings
+Google OAuth 2.0 settings
 Gateway routes
 service-specific configuration
 ```
@@ -953,7 +920,7 @@ The Gateway exposes the following logical routes:
 
 | Incoming Path | Destination |
 |---|---|
-| `/api/auth/**` | customer-service |
+| `/oauth2/**` and OAuth callback routes | API Gateway / Spring Security |
 | `/api/customers/**` | customer-service |
 | `/api/accounts/**` | account-service |
 
@@ -994,12 +961,15 @@ Base URL:
 http://localhost:8080
 ```
 
-## Authentication APIs
+## Google OAuth 2.0 Login
 
-| Method | Endpoint | Authentication | Service |
+| Method | Endpoint | Authentication | Purpose |
 |---|---|---|---|
-| POST | `/api/auth/register` | No | customer-service |
-| POST | `/api/auth/login` | No | customer-service |
+| GET | `/oauth2/authorization/google` | No | Start Google OAuth 2.0 login |
+| GET | `/login/oauth2/code/google` | Google OAuth 2.0 callback | OAuth 2.0 authorization callback |
+
+> The exact callback and post-login routes depend on the Spring Security OAuth 2.0 configuration.
+
 
 ## Customer APIs
 
@@ -1044,23 +1014,19 @@ http://localhost:8080
 
 The microservices migration does not change the original banking rules.
 
-The rules from the earlier MiniBank phases remain enforced.
+The rules from the earlier Bank Management System phases remain enforced.
 
 ---
 
-# Customer Registration Rules
+# Customer Identity Rules
 
-- Customer name is required.
-- Customer name can contain only letters and spaces.
-- Email must be valid.
-- Password must contain at least 6 characters.
-- Email must be unique.
-- Duplicate email registration returns `409 Conflict`.
-- Password is encoded using BCrypt.
-- Plain-text passwords are never stored.
-- Passwords must never be logged.
+- Authentication is performed through Google OAuth 2.0.
+- Users do not submit an application-managed password for login.
+- Google account credentials are handled by Google.
+- The application should use the authenticated Google identity/email to identify the customer.
+- Customer email/identity uniqueness should be enforced according to the application's customer-domain implementation.
+- Sensitive Google OAuth 2.0 credentials must not be logged or committed to source control.
 
----
 
 # Account Rules
 
@@ -1097,7 +1063,7 @@ Example request:
 
 ```http
 POST /api/deposit
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 Content-Type: application/json
 ```
 
@@ -1397,7 +1363,7 @@ Swagger UI, when exposed by the application, can be used to:
 - View API documentation
 - Inspect request/response DTOs
 - Execute APIs
-- Provide a Bearer JWT token
+- Provide a Bearer Google OAuth 2.0 token
 - Test protected endpoints
 
 Example:
@@ -1434,13 +1400,13 @@ Useful events include:
 
 The application must never log:
 
-- Plain-text passwords
-- Password hashes unnecessarily
-- JWT tokens
+- Google passwords / Google account credentials
+- OAuth 2.0 client secrets
+- OAuth 2.0 authorization codes or sensitive tokens
 - Database passwords
-- JWT signing secrets
+- Google OAuth 2.0 client secrets
 
-JWT tokens should never be printed to logs.
+OAuth 2.0 authorization codes, client secrets, and sensitive tokens should never be printed to logs.
 
 ---
 
@@ -1457,7 +1423,8 @@ DB_HOST
 DB_PORT
 DB_USERNAME
 DB_PASSWORD
-JWT_SECRET
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
 EUREKA_SERVER_URL
 CONFIG_SERVER_URL
 ```
@@ -1469,12 +1436,13 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USERNAME=root
 DB_PASSWORD=your_password
-JWT_SECRET=your_long_secure_secret
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=your_long_secure_secret
 EUREKA_SERVER_URL=http://localhost:8761/eureka
 CONFIG_SERVER_URL=http://localhost:8888
 ```
 
-> Do not commit real passwords, JWT secrets or production credentials to GitHub.
+> Do not commit real passwords, Google OAuth 2.0 secrets or production credentials to GitHub.
 
 ---
 
@@ -1513,20 +1481,20 @@ Example:
 Customer Service
       │
       ▼
-minibank_customer_db
+bank-management_customer_db
 
 
 Account Service
       │
       ▼
-minibank_account_db
+bank-management_account_db
 ```
 
 Example MySQL setup:
 
 ```sql
-CREATE DATABASE minibank_customer_db;
-CREATE DATABASE minibank_account_db;
+CREATE DATABASE bank-management_customer_db;
+CREATE DATABASE bank-management_account_db;
 ```
 
 The exact database names may be supplied through Config Server/environment variables.
@@ -1557,7 +1525,7 @@ git clone <your-repository-url>
 ## 2. Enter the Project
 
 ```bash
-cd minibank-microservices
+cd bank-management-microservices
 ```
 
 ## 3. Configure MySQL
@@ -1565,8 +1533,8 @@ cd minibank-microservices
 Create the separate databases:
 
 ```text
-minibank_customer_db
-minibank_account_db
+bank-management_customer_db
+bank-management_account_db
 ```
 
 ## 4. Configure Environment Variables
@@ -1578,7 +1546,8 @@ DB_HOST
 DB_PORT
 DB_USERNAME
 DB_PASSWORD
-JWT_SECRET
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
 ```
 
 and the required Config Server/Eureka settings.
@@ -1681,9 +1650,9 @@ The recommended end-to-end flow is:
           ↓
 7. Login Customer
           ↓
-8. Receive JWT
+8. Receive Google OAuth 2.0
           ↓
-9. Send JWT to Gateway
+9. Send Google OAuth 2.0 to Gateway
           ↓
 10. Open Account
           ↓
@@ -1710,67 +1679,60 @@ The recommended end-to-end flow is:
 
 # Example API Flow
 
-## Step 1 — Register Customer
+## Step 1 — Login with Google
+
+Open the Google OAuth 2.0 login endpoint:
 
 ```http
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
+GET http://localhost:8080/oauth2/authorization/google
 ```
 
-```json
-{
-  "name": "Nikhil Patidar",
-  "email": "nikhil@example.com",
-  "password": "password123"
-}
+The application redirects the user to Google for authentication.
+
+```text
+Browser
+  │
+  ▼
+API Gateway
+  │
+  ▼
+Google OAuth 2.0
+  │
+  ▼
+User authenticates with Google
+  │
+  ▼
+Application OAuth 2.0 callback
+  │
+  ▼
+Authenticated session
+```
+
+No application password is entered or stored.
+
+---
+
+## Step 2 — Access Protected APIs
+
+After successful Google login, use the authenticated session/security context to access protected APIs.
+
+The user does **not** need to manually generate, copy, or send a Google OAuth 2.0.
+
+```text
+Google Login
+     ↓
+Authenticated Session
+     ↓
+Protected Banking API
 ```
 
 ---
 
-## Step 2 — Login
-
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-```
-
-```json
-{
-  "email": "nikhil@example.com",
-  "password": "password123"
-}
-```
-
-Example response:
-
-```json
-{
-  "token": "<JWT_TOKEN>",
-  "message": "Login successful"
-}
-```
-
-Copy the JWT.
-
----
-
-## Step 3 — Send JWT to Gateway
-
-For protected APIs:
-
-```http
-Authorization: Bearer <JWT_TOKEN>
-```
-
-The Gateway authenticates/authorizes the request before routing it.
-
----
-
-## Step 4 — Open Account
+## Step 3 — Open Account
 
 ```http
 POST http://localhost:8080/api/accounts/open
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 Content-Type: application/json
 ```
 
@@ -1802,11 +1764,11 @@ Create Account
 
 ---
 
-## Step 5 — Deposit
+## Step 4 — Deposit
 
 ```http
 POST http://localhost:8080/api/deposit
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 Content-Type: application/json
 ```
 
@@ -1820,20 +1782,20 @@ Content-Type: application/json
 
 ---
 
-## Step 6 — Check Balance
+## Step 5 — Check Balance
 
 ```http
 GET http://localhost:8080/api/accounts/123456789012
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 ```
 
 ---
 
-## Step 7 — Withdraw
+## Step 6 — Withdraw
 
 ```http
 POST http://localhost:8080/api/withdraw
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 Content-Type: application/json
 ```
 
@@ -1847,11 +1809,11 @@ Content-Type: application/json
 
 ---
 
-## Step 8 — Transfer
+## Step 7 — Transfer
 
 ```http
 POST http://localhost:8080/api/transfer
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 Content-Type: application/json
 ```
 
@@ -1866,11 +1828,11 @@ Content-Type: application/json
 
 ---
 
-## Step 9 — Transaction History
+## Step 8 — Transaction History
 
 ```http
 GET http://localhost:8080/api/accounts/123456789012/history
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 ```
 
 ---
@@ -2175,13 +2137,13 @@ This is a service-to-service boundary.
 
 ---
 
-## 5. JWT Is Not Revalidated by Calling Customer Service
+## 5. Google OAuth 2.0 Authentication Is Not Revalidated by Calling Customer Service
 
-The Gateway verifies the JWT locally.
+The Gateway verifies the Google OAuth 2.0 locally.
 
 The system does not call Customer Service for every protected request.
 
-This preserves the stateless nature of JWT authentication.
+This preserves the stateless nature of OAuth 2.0 authentication.
 
 ---
 
@@ -2314,7 +2276,7 @@ Additional complexity:
 - API compatibility
 - Operational monitoring
 
-For MiniBank, the microservices version is primarily a learning exercise.
+For Bank Management System, the microservices version is primarily a learning exercise.
 
 ---
 
@@ -2324,9 +2286,9 @@ For MiniBank, the microservices version is primarily a learning exercise.
 
 Possible reasons:
 
-- JWT missing
-- JWT invalid
-- JWT expired
+- Google OAuth 2.0 missing
+- Google OAuth 2.0 invalid
+- Google OAuth 2.0 expired
 - Invalid Authorization header
 - Incorrect Bearer prefix
 - Gateway security configuration rejected the request
@@ -2334,7 +2296,7 @@ Possible reasons:
 Correct header:
 
 ```http
-Authorization: Bearer <JWT_TOKEN>
+Authorization: Bearer authenticated OAuth 2.0 session
 ```
 
 ---
@@ -2463,7 +2425,7 @@ The Customer Service dependency is required when creating an account, not when A
                            ▼
                     API GATEWAY :8080
                            │
-                    JWT Authentication
+                    Google OAuth 2.0 Authentication
                     Authorization
                            │
              ┌─────────────┴─────────────┐
@@ -2508,11 +2470,11 @@ CONFIG SERVER :8888
 Client
   │
   │ POST /api/accounts/open
-  │ Authorization: Bearer JWT
+  │ Authorization: Bearer Google OAuth 2.0
   ▼
 API Gateway
   │
-  │ Validate JWT / Authorization
+  │ Validate Google OAuth 2.0 / Authorization
   ▼
 Account Service
   │
@@ -2566,7 +2528,7 @@ API Gateway
   ▼
 Account Service
   │
-  ├── Validate JWT context
+  ├── Validate Google OAuth 2.0 context
   │
   ├── Validate sender ownership
   │
@@ -2599,27 +2561,25 @@ No distributed transaction is required because both accounts and transactions be
 
 The project must preserve the following security requirements:
 
-- JWT authentication is required for protected APIs.
-- Authentication/authorization is handled at the Gateway.
+- Google OAuth 2.0 is used for user authentication.
+- Protected banking APIs require an authenticated user.
+- Authentication is integrated at the Gateway/security boundary.
 - Account ownership is enforced inside Account Service.
-- Passwords are BCrypt hashed.
-- Plain-text passwords are never stored.
-- Passwords are never logged.
-- JWT secrets are externalized.
-- JWT tokens are never logged.
+- Google passwords are never stored by the application.
+- Google OAuth 2.0 client secrets are externalized.
+- OAuth authorization codes, client secrets, and other sensitive credentials are never logged.
 - Database credentials are externalized.
 - No peer-service host/port is hardcoded in Java code.
 - Sensitive information is not returned by service-to-service APIs.
-- Customer existence API returns only the minimum information required.
+- Customer existence APIs return only the minimum information required.
 
----
 
 # Future Improvements
 
 The current project demonstrates the required Phase 5 microservices pattern. Possible production-oriented improvements include:
 
-- Replace shared JWT secret with asymmetric public/private key authentication.
-- Add refresh-token support.
+- Replace shared Google OAuth 2.0 secret with asymmetric public/private key authentication.
+- Add production-grade session/token lifecycle management where required.
 - Add centralized secret management.
 - Add distributed tracing.
 - Add correlation IDs.
@@ -2662,8 +2622,9 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 - Independent customer database
 - Independent account database
 - `customerId` instead of cross-service JPA Customer relationship
-- Gateway authentication and authorization
-- JWT-based security
+- Google OAuth 2.0 authentication
+- Spring Security OAuth2 Client
+- Google login flow
 - Centralized configuration
 - Integration testing
 - H2 test database
@@ -2672,10 +2633,8 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 
 ### Preserved
 
-- Customer registration
-- Login
-- JWT issuing
-- BCrypt password hashing
+- Customer domain management
+- Google-based user authentication
 - Account creation
 - SAVING and CURRENT account types
 - 12-digit account numbers
@@ -2694,13 +2653,11 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 - SLF4J logging
 - Swagger/OpenAPI support
 
----
-
 # Author
 
 **Nikhil Patidar**
 
-MiniBank — Phase 5 Microservices Banking Backend
+Bank Management System — Phase 5 Microservices Banking Backend
 
 ### Technologies Used
 
@@ -2708,8 +2665,8 @@ MiniBank — Phase 5 Microservices Banking Backend
 - Spring Boot 4.0.7
 - Spring Web MVC
 - Spring Security
-- JWT
-- BCrypt
+- Spring Security OAuth2 Client
+- Google OAuth 2.0
 - Spring Data JPA
 - Hibernate
 - MySQL
@@ -2725,8 +2682,6 @@ MiniBank — Phase 5 Microservices Banking Backend
 - H2
 - Maven
 - Lombok
-
----
 
 # License
 
