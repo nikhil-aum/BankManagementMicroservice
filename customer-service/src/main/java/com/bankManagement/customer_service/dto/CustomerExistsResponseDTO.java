@@ -12,9 +12,8 @@ import lombok.Setter;
 public class CustomerExistsResponseDTO {
 
     private Long customerId;
-
-    private String customerName;
-
+    private String name;
+    private String email;
     private boolean exists;
 
 }

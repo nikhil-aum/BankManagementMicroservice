@@ -6,11 +6,12 @@ import java.util.List;
 
 public interface TransactionService {
      List<TransactionHistoryResponseDTO> getTransactionHistory(
-            String accountNumber,
-            Long customerId,
-            String type,
-            String status,
-            Double amount,
-            String from,
-            String to);
+             String accountNumber,
+             String customerEmail,
+             String type,
+             String status,
+             Double amount,
+             String from,
+             String to
+     );
 }

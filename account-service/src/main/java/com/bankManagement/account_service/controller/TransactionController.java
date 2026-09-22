@@ -1,9 +1,9 @@
 package com.bankManagement.account_service.controller;
 
-
 import com.bankManagement.account_service.dto.TransactionHistoryResponseDTO;
 import com.bankManagement.account_service.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -20,32 +20,24 @@ import java.util.List;
 public class TransactionController {
 
     private final TransactionService transactionService;
-
     private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
-
-
 
     @GetMapping("/{accountNumber}/transactions")
     @Operation(summary = "Get All Transaction History")
-    public ResponseEntity<List<TransactionHistoryResponseDTO>> getTransactionHistory(
+    public ResponseEntity<?> getTransactionHistory(
             @PathVariable String accountNumber,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Double amount,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
+            @Parameter(hidden = true)
+            @RequestHeader(value = "X-Customer-Email", required = false) String authenticatedCustomerEmail) {
 
-        logger.info("Transaction history request received for accountNumber={}, customerId={}, type={}, status={}, amount={}, from={}, to={}",
-                accountNumber, authenticatedCustomerId, type, status, amount, from, to);
+        logger.info("Processing transaction history request for accountNumber: {}, email: {}",
+                accountNumber, authenticatedCustomerEmail);
 
-        List<TransactionHistoryResponseDTO> response = transactionService.getTransactionHistory(
-                accountNumber, authenticatedCustomerId, type, status, amount, from, to);
-
-        logger.info("Transaction history fetched successfully for accountNumber={}, customerId={}, totalRecords={}",
-                accountNumber, authenticatedCustomerId, response.size());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(transactionService.getTransactionHistory(
+                accountNumber, authenticatedCustomerEmail, type, status, amount, from, to));
     }
-
 }

@@ -4,5 +4,5 @@ import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 
 public interface DepositService {
-    TransactionResponseDTO deposit(TransactionRequestDTO request, Long customerId);
+    TransactionResponseDTO deposit(TransactionRequestDTO request, String customerEmail);
 }

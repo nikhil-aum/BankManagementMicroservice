@@ -4,6 +4,7 @@ import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.service.WithdrawService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -16,20 +17,19 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Withdraw", description = "Withdraw APIs")
 @AllArgsConstructor
 public class WithdrawController {
+
     private final WithdrawService withdrawService;
     private static final Logger logger = LoggerFactory.getLogger(WithdrawController.class);
 
 
     @PostMapping
     @Operation(summary = "Withdraw money")
-    public ResponseEntity<TransactionResponseDTO> withdraw(@RequestBody TransactionRequestDTO request,
-                                                           @RequestHeader("X-Customer-Id") Long authenticatedCustomerId) {
-        logger.info("Withdraw request received for customerId: {}", authenticatedCustomerId);
+    public ResponseEntity<?> withdraw(
+            @RequestBody TransactionRequestDTO request,
+            @Parameter(hidden = true)
+            @RequestHeader(value = "X-Customer-Email", required = false) String authenticatedCustomerEmail) {
 
-
-        TransactionResponseDTO result = withdrawService.withdraw(request, authenticatedCustomerId);
-
-        logger.info("Withdraw response: {}", result.getMessage());
-        return ResponseEntity.ok(result);
+        logger.info("Processing withdraw request for email: {}", authenticatedCustomerEmail);
+        return ResponseEntity.ok(withdrawService.withdraw(request, authenticatedCustomerEmail));
     }
 }

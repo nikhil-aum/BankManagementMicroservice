@@ -1,5 +1,6 @@
 package com.bankManagement.account_service.service.impl;
 
+import com.bankManagement.account_service.dto.CustomerExistsResponseDTO;
 import com.bankManagement.account_service.dto.TransactionRequestDTO;
 import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.entity.Account;
@@ -8,6 +9,7 @@ import com.bankManagement.account_service.entity.TransactionStatus;
 import com.bankManagement.account_service.entity.TransactionType;
 import com.bankManagement.account_service.exception.AccountOwnershipException;
 import com.bankManagement.account_service.exception.BankingException;
+import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.WithdrawService;
 import lombok.AllArgsConstructor;
@@ -24,10 +26,19 @@ public class WithdrawServiceImpl implements WithdrawService {
     private static final Logger logger = LoggerFactory.getLogger(WithdrawServiceImpl.class);
 
     private final AccountRepository accountRepository;
+    private final CustomerClient customerClient;
 
     @Override
-    public TransactionResponseDTO withdraw(TransactionRequestDTO request, Long customerId) {
-        logger.info("Withdraw request for account {} by customer {}", request.getAccountNumber(), customerId);
+    public TransactionResponseDTO withdraw(TransactionRequestDTO request, String customerEmail) {
+        logger.info("Withdraw request for account {} by customer email {}", request.getAccountNumber(), customerEmail);
+
+        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
+            logger.error("Customer not found or invalid response for email {}", customerEmail);
+            throw new BankingException("Customer not found with email: " + customerEmail);
+        }
+
+        Long customerId = customerDto.getCustomerId();
 
         if (!request.getAccountNumber().equals(request.getConfirmAccountNumber())) {
             logger.error("Account number mismatch: {} & {}",
@@ -42,7 +53,7 @@ public class WithdrawServiceImpl implements WithdrawService {
                 });
 
         if (!account.getCustomerId().equals(customerId)) {
-            logger.warn("Ownership mismatch for account {} and customer {}", request.getAccountNumber(), customerId);
+            logger.warn("Ownership mismatch for account {} and customer ID {}", request.getAccountNumber(), customerId);
             throw new AccountOwnershipException();
         }
 
@@ -83,6 +94,8 @@ public class WithdrawServiceImpl implements WithdrawService {
             throw new BankingException("Withdrawal failed: Insufficient balance");
         }
 
+        logger.info("Initiating withdrawal of ₹{} from account number: {}", request.getAmount(), account.getAccountNumber());
+
         account.withdraw(request.getAmount());
         transaction.setDescription("₹" + request.getAmount() + " debited successfully");
         transaction.setBalanceAfterTransaction(account.getBalance());
@@ -90,6 +103,9 @@ public class WithdrawServiceImpl implements WithdrawService {
 
         account.getTransactions().add(transaction);
         accountRepository.save(account);
+
+        logger.info("Successfully debited ₹{}. Remaining balance for account {}: ₹{}",
+                request.getAmount(), account.getAccountNumber(), account.getBalance());
 
         TransactionResponseDTO response = new TransactionResponseDTO();
         response.setMessage("₹" + request.getAmount() + " debited successfully from your account");
