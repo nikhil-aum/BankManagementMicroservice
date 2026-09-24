@@ -88,7 +88,7 @@ public class GlobalExceptionHandler {
 
         Map<String, Object> responseBody = createDummyResponseBody(
                 "CIRCUIT_OPEN_FALLBACK",
-                "Customer Service is currently offline. Returning fallback data."
+                "Customer Service is currently experiencing downtime. please try again later."
         );
         return new ResponseEntity<>(responseBody, HttpStatus.OK);
     }
@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
 
         Map<String, Object> responseBody = createDummyResponseBody(
                 "SERVICE_UNAVAILABLE",
-                "Unable to connect to Customer Service. Showing temporary fallback data."
+                "Unable to connect to Customer Service. Please try again after some time or contact customer support."
         );
         return new ResponseEntity<>(responseBody, HttpStatus.OK);
     }
