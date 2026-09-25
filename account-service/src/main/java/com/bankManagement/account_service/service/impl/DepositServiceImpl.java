@@ -12,6 +12,7 @@ import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.DepositService;
+import com.bankManagement.account_service.util.CustomerLookupService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -29,12 +30,13 @@ public class DepositServiceImpl implements DepositService {
 
     private final AccountRepository accountRepository;
     private final CustomerClient customerClient;
+    private final CustomerLookupService customerLookupService;
 
     @Override
     public TransactionResponseDTO deposit(TransactionRequestDTO request, String customerEmail) {
         logger.info("Deposit request for account {} by email {}", request.getAccountNumber(), customerEmail);
 
-        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        CustomerExistsResponseDTO customerDto = customerLookupService.getCustomerByEmail(customerEmail);
         if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
             logger.error("Customer not found or invalid response for email {}", customerEmail);
             throw new BankingException("Customer not found with email: " + customerEmail);

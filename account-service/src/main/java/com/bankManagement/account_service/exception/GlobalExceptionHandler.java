@@ -2,7 +2,6 @@ package com.bankManagement.account_service.exception;
 
 
 import com.bankManagement.account_service.dto.AccountListResponseDTO;
-import com.bankManagement.account_service.service.impl.AccountServiceImpl;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.slf4j.Logger;

@@ -8,6 +8,7 @@ import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.AccountService;
+import com.bankManagement.account_service.util.CustomerLookupService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
     private final CustomerClient customerClient;
+    private final CustomerLookupService customerLookupService;
 
     @Override
     public AccountDetailsResponseDTO createAccount(CreateAccountRequestDTO request, String customerEmail) {
@@ -76,7 +78,7 @@ public class AccountServiceImpl implements AccountService {
     public TransactionResponseDTO checkBalance(String accountNumber, String customerEmail) {
         logger.info("Checking balance for account {} requested by email {}", accountNumber, customerEmail);
 
-        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        CustomerExistsResponseDTO customerDto = customerLookupService.getCustomerByEmail(customerEmail);
         if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
             throw new BankingException("Customer not found with email: " + customerEmail);
         }
@@ -106,7 +108,7 @@ public class AccountServiceImpl implements AccountService {
     public List<AccountListResponseDTO> getMyAccounts(String customerEmail) {
         logger.info("Fetching accounts for customer email: {}", customerEmail);
 
-        CustomerExistsResponseDTO customerDto = customerClient.getCustomerByEmail(customerEmail);
+        CustomerExistsResponseDTO customerDto = customerLookupService.getCustomerByEmail(customerEmail);
         if (customerDto == null || !customerDto.isExists() || customerDto.getCustomerId() == null) {
             throw new BankingException("Customer not found with email: " + customerEmail);
         }

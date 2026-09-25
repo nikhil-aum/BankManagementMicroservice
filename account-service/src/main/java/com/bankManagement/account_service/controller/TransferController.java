@@ -1,7 +1,6 @@
 package com.bankManagement.account_service.controller;
 
 import com.bankManagement.account_service.dto.MoneyTransferRequestDTO;
-import com.bankManagement.account_service.dto.TransactionResponseDTO;
 import com.bankManagement.account_service.service.TransferService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
