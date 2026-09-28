@@ -2,9 +2,9 @@
 
 A secure, distributed banking backend built by transforming the Phase 4 Bank Management System monolith into an independently deployable microservices architecture.
 
-The system keeps the original banking business rules unchanged while separating responsibilities across dedicated services. Service discovery, centralized configuration, API routing, OAuth 2.0 / Google OAuth 2.0 security, inter-service communication, independent databases, and integration testing are used to demonstrate a production-style microservices design.
+The system keeps the original banking business rules unchanged while separating responsibilities across dedicated services. Service discovery, centralized configuration, API routing, Google OAuth 2.0 security, inter-service communication, independent databases, resilience patterns, correlation IDs, rate limiting, and integration testing are used to demonstrate a production-style microservices design.
 
-> **Learning note:** For an application of this size, a monolith is completely reasonable in a real-world environment. This microservices version is intentionally built to learn service boundaries, service discovery, API gateway routing, centralized configuration, and service-to-service communication.
+> **Learning note:** For an application of this size, a monolith is completely reasonable in a real-world environment. This microservices version is intentionally built to learn service boundaries, service discovery, API gateway routing, centralized configuration, service-to-service communication, resilience, observability, and distributed-system concerns.
 
 ---
 
@@ -26,6 +26,11 @@ The system keeps the original banking business rules unchanged while separating 
 - [OAuth 2.0 Flow](#oauth-20-flow)
 - [Service Discovery with Eureka](#service-discovery-with-eureka)
 - [Inter-Service Communication](#inter-service-communication)
+- [Resilience with Resilience4j](#resilience-with-resilience4j)
+- [Circuit Breaker](#circuit-breaker)
+- [Retry Mechanism](#retry-mechanism)
+- [Rate Limiting](#rate-limiting)
+- [Correlation ID and MDC](#correlation-id-and-mdc)
 - [Centralized Configuration](#centralized-configuration)
 - [Gateway Routing](#gateway-routing)
 - [API Endpoints](#api-endpoints)
@@ -71,7 +76,8 @@ The system is organized as:
 ```text
                               ┌──────────────────────┐
                               │       Client         │
-                              │ Postman / Swagger    │
+                              │ Postman / Browser    │
+                              │      / Swagger       │
                               └──────────┬───────────┘
                                          │
                                          │ HTTP
@@ -79,8 +85,9 @@ The system is organized as:
                               ┌──────────────────────┐
                               │     API Gateway      │
                               │       :8080          │
-                              │ Routing + Google OAuth 2.0    │
-                              │     / Authorization  │
+                              │ Routing + Security   │
+                              │ OAuth 2.0 + Rate     │
+                              │ Limiting              │
                               └──────────┬───────────┘
                                          │
                            ┌─────────────┴─────────────┐
@@ -88,21 +95,21 @@ The system is organized as:
                            ▼                           ▼
                 ┌────────────────────┐       ┌────────────────────┐
                 │ Customer Service   │       │  Account Service  │
-                │      :8081        │       │      :8082        │
+                │      :8081         │       │      :8082         │
                 │                    │       │                    │
                 │ Customer           │       │ Account            │
                 │ Registration       │       │ Transaction        │
-                │ Login              │       │ Deposit            │
-                │ Google OAuth 2.0 authentication        │       │ Withdrawal         │
-                │                    │       │ Transfer            │
-                └─────────┬──────────┘       │ Balance             │
-                          │                  │ History             │
+                │ Identity           │       │ Deposit            │
+                │                    │       │ Withdrawal         │
+                └─────────┬──────────┘       │ Transfer           │
+                          │                  │ Balance            │
+                          │                  │ History            │
                           │                  └─────────┬──────────┘
                           │                            │
                           ▼                            ▼
                 ┌────────────────────┐       ┌────────────────────┐
                 │ Customer Database  │       │ Account Database   │
-                │     MySQL          │       │      MySQL          │
+                │       MySQL        │       │       MySQL        │
                 └────────────────────┘       └────────────────────┘
 
                           ▲
@@ -113,11 +120,19 @@ The system is organized as:
                  │      :8761      │
                  └─────────────────┘
 
-                 Centralized Configuration
                  ┌─────────────────────┐
                  │    Config Server    │
-                 │  Shared properties  │
+                 │       :8888         │
                  └─────────────────────┘
+
+                 Resilience4j
+                 ├── Circuit Breaker
+                 ├── Retry
+                 └── Rate Limiter
+
+                 Observability
+                 ├── Correlation ID
+                 └── MDC Logging
 ```
 
 The external client communicates with the system through the API Gateway. Internal services communicate through service names discovered using Eureka rather than hardcoded host/port addresses.
@@ -157,22 +172,24 @@ API Gateway
   │
   └──────────────► account-service
                        │
+                       ├── Account
+                       ├── Transaction
+                       │
                        ▼
                   Account DB
-                       │
-                       └── Transaction data
 
-        customer-service ◄──── OpenFeign ──── account-service
+        account-service
+              │
+              │ OpenFeign
+              ▼
+        customer-service
 
-                    All services
-                         │
-                         ▼
-                      Eureka
-
-                    All services
-                         │
-                         ▼
-                   Config Server
+        All services
+              │
+              ├── Eureka Discovery
+              ├── Config Server
+              ├── Correlation ID / MDC
+              └── Resilience4j
 ```
 
 ---
@@ -185,13 +202,9 @@ The project contains the following independently runnable Maven applications:
 bank-management-microservices/
 │
 ├── config-server/
-│
 ├── discovery-server/
-│
 ├── api-gateway/
-│
 ├── customer-service/
-│
 └── account-service/
 ```
 
@@ -201,7 +214,7 @@ bank-management-microservices/
 |---|---|---:|
 | `config-server` | Centralized application configuration | 8888 |
 | `discovery-server` | Eureka service registry | 8761 |
-| `api-gateway` | Routing, authentication and authorization | 8080 |
+| `api-gateway` | Routing, authentication, authorization and rate limiting | 8080 |
 | `customer-service` | Customer domain and customer identity integration | 8081 |
 | `account-service` | Account, transactions and banking operations | 8082 |
 
@@ -241,6 +254,8 @@ bank-management-microservices
 │       │   │       ├── config
 │       │   │       ├── security
 │       │   │       ├── filter
+│       │   │       ├── rateLimit
+│       │   │       ├── correlation
 │       │   │       └── exception
 │       │   └── resources
 │       │       └── application.yml
@@ -281,7 +296,8 @@ bank-management-microservices
         │   │       ├── dto
         │   │       ├── exception
         │   │       ├── config
-        │   │       └── client
+        │   │       ├── client
+        │   │       └── resilience
         │   └── resources
         │       └── application.yml
         │
@@ -289,7 +305,7 @@ bank-management-microservices
             └── java
 ```
 
-> The exact package names may vary according to the implementation. The important architectural rule is that each service keeps its own controller/service/repository/entity/dto/exception/config layers.
+> The exact package names may vary according to the implementation. The important architectural rule is that each service keeps its own controller/service/repository/entity/dto/exception/config layers. Resilience and correlation components may be placed in dedicated packages or infrastructure/configuration classes.
 
 ---
 
@@ -306,10 +322,11 @@ Configuration that can be centralized includes:
 - Database configuration
 - Google OAuth 2.0 configuration
 - Gateway configuration
+- Resilience4j configuration
+- Rate limiting configuration
+- Logging configuration
+- Correlation ID configuration
 - Application-specific properties
-- Common environment-driven settings
-
-The goal is to avoid duplicating configuration across services.
 
 Secrets should still be supplied securely through environment variables or a secure configuration mechanism.
 
@@ -324,7 +341,7 @@ Responsibilities:
 - Maintain the service registry
 - Allow services to register themselves
 - Allow services to discover other services
-- Remove the need for hardcoded peer host/port values
+- Remove the need for hardcoded peer host/port addresses
 
 The Discovery Server runs on:
 
@@ -343,15 +360,11 @@ Responsibilities:
 - Route incoming requests
 - Authenticate requests using Google OAuth 2.0
 - Apply authorization/security rules
+- Apply rate limiting
+- Generate or propagate correlation IDs
 - Forward requests to the appropriate service
 - Use Eureka service IDs for routing
-- Return a clean 404 when no route matches
-
-The gateway runs on:
-
-```text
-http://localhost:8080
-```
+- Return clean routing/security errors
 
 Business logic such as balance validation, insufficient-fund checks and account ownership remains inside the appropriate business service.
 
@@ -366,11 +379,11 @@ Responsibilities:
 - Customer registration
 - Customer validation
 - Duplicate email checking
-- Password hashing
-- Login
-- Google OAuth 2.0 authentication
+- Password hashing where applicable to the existing customer domain
+- Google OAuth 2.0 identity integration
 - Customer existence verification
 - Customer database ownership
+- Correlation ID propagation and logging
 
 Customer Service does not own account or transaction tables.
 
@@ -392,10 +405,11 @@ Responsibilities:
 - Transaction filtering
 - Account ownership validation
 - Account and transaction database ownership
+- Customer-service communication through OpenFeign
+- Resilience4j circuit breaker/retry handling for remote customer checks
+- Correlation ID propagation and MDC logging
 
 Account and Transaction remain together deliberately because a transfer changes two accounts and creates double-entry transaction records.
-
-Splitting Account and Transaction into separate services would introduce distributed transaction complexity, which is outside the scope of this project.
 
 ---
 
@@ -410,14 +424,17 @@ Splitting Account and Transaction into separate services would introduce distrib
 | Hibernate | ORM |
 | MySQL | Production/runtime databases |
 | Spring Security | Security |
-| Google OAuth 2.0 | Authentication token |
-| BCrypt | Password hashing |
+| Google OAuth 2.0 | Authentication |
+| BCrypt | Password hashing where applicable |
 | Spring Cloud Netflix Eureka | Service discovery |
 | Spring Cloud Gateway | API Gateway |
 | Spring Cloud OpenFeign | Service-to-service communication |
 | Spring Cloud Config | Centralized configuration |
+| Resilience4j | Circuit breaker, retry and rate limiting |
 | Jakarta Bean Validation | Request validation |
 | springdoc OpenAPI | API documentation |
+| SLF4J / Logback | Application logging |
+| MDC | Correlation ID propagation in logs |
 | JUnit 5 | Integration test framework |
 | Spring Boot Test | Application integration testing |
 | MockMvc | HTTP/API integration testing |
@@ -498,10 +515,11 @@ Responsibilities:
 - Customer database ownership
 - Customer-related validation required by the banking domain
 
-Authentication is delegated to Google through OAuth 2.0. The application does not maintain a local password-based login flow.
+Authentication is delegated to Google through OAuth 2.0. The application does not maintain a local password-based login flow when Google OAuth 2.0 is configured as the authentication mechanism.
 
 Customer Service does not own account or transaction tables.
 
+---
 
 # Account Service
 
@@ -556,9 +574,11 @@ Client
   ▼
 Gateway :8080
   │
-  ├── OAuth 2.0 / Google login
+  ├── Google OAuth 2.0
   ├── Authentication
   ├── Authorization
+  ├── Rate Limiting
+  ├── Correlation ID
   │
   ├── /api/customers/** → customer-service
   └── /api/accounts/**  → account-service
@@ -570,6 +590,8 @@ The Gateway is responsible for:
 - Integrating Google OAuth 2.0 login through Spring Security
 - Authentication
 - Authorization/security filtering
+- Rate limiting
+- Correlation ID creation/propagation
 - Handling unauthenticated requests
 - Forwarding authenticated requests
 - Handling clean routing errors
@@ -585,6 +607,7 @@ The Gateway is **not** responsible for:
 
 Those rules remain in Account Service.
 
+---
 
 # Authentication and Authorization
 
@@ -596,82 +619,64 @@ The authentication architecture is:
 Customer
    │
    ▼
-POST /api/auth/login
+Google OAuth 2.0 Login
    │
    ▼
-Customer Service
+Google Identity Provider
    │
    ▼
-Google OAuth 2.0 generated
-   │
-   ▼
-Client receives Google OAuth 2.0
-   │
-   ▼
-Client sends:
-Authorization: Bearer <Google OAuth 2.0>
+Authenticated Application User
    │
    ▼
 API Gateway
    │
+   ├── Authentication / Authorization
+   ├── Rate Limiting
+   └── Correlation ID
+   │
    ▼
-OAuth 2.0 authentication / authorization
-   │
-   ├── Invalid / missing token
-   │          │
-   │          ▼
-   │      401 Unauthorized
-   │
-   └── Valid token
-              │
-              ▼
-        Request routed
-              │
-              ▼
-       Target Microservice
+Target Microservice
 ```
 
-Google OAuth 2.0 authentication remains part of Customer Service because Customer Service owns customer authentication credentials.
+Protected requests use the application's authenticated security context.
 
 The Gateway performs the external request security check before forwarding protected requests.
 
 ---
 
-# Google OAuth 2.0 Flow
+# OAuth 2.0 Flow
 
 ```text
-1. Customer registers
+1. Customer starts Google login
           ↓
-2. Customer Service stores BCrypt password
+2. Gateway redirects to Google
           ↓
-3. Customer logs in
+3. Google authenticates the customer
           ↓
-4. Customer Service validates credentials
+4. Google redirects to the configured callback
           ↓
-5. Customer Service generates Google OAuth 2.0
+5. Spring Security establishes authenticated context
           ↓
-6. Client receives Google OAuth 2.0
+6. Client accesses protected banking APIs
           ↓
-7. Client sends Bearer token to Gateway
+7. Gateway authenticates/authorizes request
           ↓
-8. Gateway validates Google OAuth 2.0
+8. Gateway forwards request
           ↓
-9. Valid request is routed
-          ↓
-10. Account Service processes banking operation
+9. Account/Customer Service processes request
 ```
 
 Protected request:
 
 ```http
-Authorization: Bearer authenticated OAuth 2.0 session
+Authorization: Bearer <access-token>
 ```
 
-The Google OAuth 2.0 should contain enough information for downstream ownership/security decisions, such as the authenticated customer identifier.
+The exact token/session handling depends on the configured Spring Security OAuth 2.0 flow.
 
 ---
 
-# Google OAuth 2.0 Configuration
+# OAuth 2.0 Configuration
 
 Google OAuth 2.0 client configuration is required for the login flow.
 
@@ -714,6 +719,7 @@ Protected Banking APIs
 
 Google remains the identity provider. The application does not receive or store the user's Google password.
 
+---
 
 # Ownership Authorization
 
@@ -877,6 +883,715 @@ This reduces unnecessary network dependency and latency.
 
 ---
 
+# Resilience with Resilience4j
+
+Microservices communicate over a network, so failures such as timeouts, temporary service unavailability and connection errors can occur.
+
+This project uses **Resilience4j** to demonstrate:
+
+- Circuit Breaker
+- Retry
+- Rate Limiting
+
+The resilience layer is primarily applied to remote/service-boundary operations where it is appropriate.
+
+Architecture:
+
+```text
+Account Service
+      │
+      ▼
+   OpenFeign
+      │
+      ▼
+Resilience4j
+  ┌───────────────┐
+  │ CircuitBreaker│
+  │ Retry         │
+  └───────────────┘
+      │
+      ▼
+Customer Service
+```
+
+The objective is to prevent temporary downstream failures from causing unnecessary cascading failures.
+
+---
+
+# Circuit Breaker
+
+A Circuit Breaker monitors calls to a remote dependency.
+
+For this project, the primary example is:
+
+```text
+account-service
+      │
+      ▼
+customer-service
+```
+
+Conceptually:
+
+```text
+                 ┌──────────────────┐
+                 │   CLOSED         │
+                 │ Normal requests  │
+                 └────────┬─────────┘
+                          │
+                    failures increase
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │     OPEN         │
+                 │ Calls rejected   │
+                 │ immediately      │
+                 └────────┬─────────┘
+                          │
+                    wait duration
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │   HALF_OPEN      │
+                 │ Test requests    │
+                 └───────┬──────────┘
+                         │
+                ┌────────┴────────┐
+                │                 │
+             success            failure
+                │                 │
+                ▼                 ▼
+             CLOSED              OPEN
+```
+
+## Why Circuit Breaker Is Used
+
+Without a circuit breaker:
+
+```text
+Account Service
+      │
+      │ repeated calls
+      ▼
+Customer Service DOWN
+      │
+      ▼
+timeouts / failures
+      │
+      ▼
+threads remain busy
+      │
+      ▼
+resource exhaustion
+```
+
+With a circuit breaker:
+
+```text
+Customer Service DOWN
+        │
+        ▼
+Failure threshold reached
+        │
+        ▼
+Circuit OPEN
+        │
+        ▼
+Calls fail fast
+        │
+        ▼
+Account Service remains responsive
+```
+
+The circuit breaker does not make the downstream service available. It prevents repeated calls from continuously consuming resources while the dependency is unavailable.
+
+---
+
+# Circuit Breaker Configuration Example
+
+A typical Resilience4j configuration can be centralized:
+
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      customerService:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+```
+
+Meaning, conceptually:
+
+- Inspect a rolling window of calls.
+- Start evaluating failures after the minimum number of calls.
+- Open the circuit when the configured failure percentage is reached.
+- Keep the circuit open for the configured wait duration.
+- Allow a limited number of trial calls in HALF_OPEN state.
+
+Exact values should be tuned according to the actual application's traffic and failure characteristics.
+
+---
+
+# Circuit Breaker Fallback
+
+A fallback should return a controlled application-level response.
+
+Example conceptual flow:
+
+```text
+Account Service
+      │
+      ▼
+Customer existence request
+      │
+      ▼
+Circuit Breaker
+      │
+      ├── CLOSED → call Customer Service
+      │
+      └── OPEN → fallback
+                    │
+                    ▼
+             controlled error
+```
+
+For account creation, the fallback should **not** create an account when Customer Service cannot confirm customer existence.
+
+A safe behavior is:
+
+```text
+Customer verification unavailable
+          ↓
+Do not create account
+          ↓
+Return clear service-unavailable response
+```
+
+This prevents invalid accounts from being created when the customer verification dependency cannot be reached.
+
+---
+
+# Retry Mechanism
+
+Retry is used for temporary/transient failures.
+
+Example:
+
+```text
+Account Service
+      │
+      ▼
+Customer Service
+      │
+      └── temporary failure
+              │
+              ▼
+           Retry #1
+              │
+              └── temporary failure
+                      │
+                      ▼
+                   Retry #2
+                      │
+                      ▼
+                 Final failure
+```
+
+Retry is useful for short-lived failures such as:
+
+- Temporary network interruption
+- Connection reset
+- Temporary service unavailability
+
+Retry should **not** be used blindly for every exception.
+
+---
+
+# Retry Configuration Example
+
+A typical configuration can be:
+
+```yaml
+resilience4j:
+  retry:
+    instances:
+      customerService:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+```
+
+Conceptually:
+
+```text
+maxAttempts: 3
+```
+
+means the operation can be attempted up to three times in total, depending on the Resilience4j configuration and invocation model.
+
+The retry policy should be limited to transient failures. Business exceptions such as:
+
+```text
+CustomerNotFound
+InvalidRequest
+ValidationException
+```
+
+should generally not be retried because repeating the same request will not fix the business condition.
+
+---
+
+# Retry + Circuit Breaker Relationship
+
+Retry and Circuit Breaker solve different problems.
+
+### Retry
+
+Answers:
+
+> "Can a temporary failure succeed if I try again?"
+
+### Circuit Breaker
+
+Answers:
+
+> "Should I stop calling a dependency that is repeatedly failing?"
+
+Combined flow:
+
+```text
+Request
+  │
+  ▼
+Circuit Breaker
+  │
+  ▼
+Retry
+  │
+  ▼
+Customer Service
+  │
+  ├── Success ───────────────► Response
+  │
+  └── Temporary Failure
+          │
+          ▼
+       Retry
+          │
+          └── failures continue
+                    │
+                    ▼
+              Circuit statistics
+                    │
+                    ▼
+             Circuit may OPEN
+```
+
+Retry should not be configured with large attempt counts or long delays because excessive retries can increase latency and amplify load during an outage.
+
+---
+
+# Resilience4j Ordering
+
+The exact decorator ordering depends on the implementation.
+
+A common conceptual arrangement is:
+
+```text
+CircuitBreaker
+      ↓
+Retry
+      ↓
+Feign Call
+      ↓
+Customer Service
+```
+
+The project should keep the resilience policy consistent across remote calls and document any implementation-specific ordering.
+
+---
+
+# Rate Limiting
+
+Rate limiting controls how many requests a client can make during a defined time window.
+
+In this project, rate limiting is applied at the API Gateway using Resilience4j or the configured Gateway rate-limiting mechanism.
+
+Example configuration:
+
+```text
+20 requests
+per
+60 seconds
+```
+
+Conceptually:
+
+```text
+Client
+  │
+  ▼
+API Gateway
+  │
+  ▼
+Rate Limiter
+  │
+  ├── Request 1  → Allow
+  ├── Request 2  → Allow
+  ├── ...
+  ├── Request 20 → Allow
+  │
+  └── Request 21 → Reject
+```
+
+After the configured refresh period, the available request capacity is refreshed according to the selected rate-limiter configuration.
+
+---
+
+# Rate Limiter Configuration Example
+
+Example Resilience4j configuration:
+
+```yaml
+resilience4j:
+  ratelimiter:
+    instances:
+      gatewayRateLimiter:
+        limitForPeriod: 20
+        limitRefreshPeriod: 60s
+        timeoutDuration: 0s
+```
+
+This means:
+
+```text
+20 requests
+within a 60-second refresh period
+```
+
+and:
+
+```text
+timeoutDuration: 0s
+```
+
+means a request does not wait for permission. If no permission is immediately available, it is rejected.
+
+The exact behavior depends on how the limiter is integrated into the Gateway.
+
+---
+
+# Rate Limiting Flow
+
+```text
+                    Client
+                      │
+                      ▼
+                 API Gateway
+                      │
+                Rate Limiter
+                      │
+             ┌────────┴────────┐
+             │                 │
+          Allowed            Limited
+             │                 │
+             ▼                 ▼
+       Authentication       429 response
+             │
+             ▼
+          Routing
+             │
+             ▼
+       Microservice
+```
+
+Rate limiting helps protect the API boundary from excessive request volume and accidental request bursts.
+
+A rate limiter does not replace authentication, authorization, or business validation.
+
+---
+
+# Rate Limit Response
+
+When the configured limit is exceeded, the Gateway should return:
+
+```http
+429 Too Many Requests
+```
+
+Example response:
+
+```json
+{
+  "status": 429,
+  "message": "Too many requests. Please try again later."
+}
+```
+
+The exact response structure depends on the Gateway's exception handling implementation.
+
+---
+
+# Rate Limiting Design Considerations
+
+A production system may use different limits based on:
+
+- User identity
+- Client IP
+- API key
+- Route
+- Tenant
+- Authentication status
+
+For this educational project, the Gateway can demonstrate a basic rate-limiting policy.
+
+For distributed deployments with multiple Gateway instances, a local in-memory limiter has limitations because each instance maintains its own state. A distributed rate limiter backed by a shared store such as Redis can be considered for a future production-oriented implementation.
+
+---
+
+# Correlation ID and MDC
+
+Microservices generate logs across multiple applications.
+
+A single request may produce:
+
+```text
+API Gateway
+     ↓
+Account Service
+     ↓
+Customer Service
+```
+
+Without a correlation ID, identifying which logs belong to the same request becomes difficult.
+
+This project uses a **Correlation ID** and **MDC (Mapped Diagnostic Context)**.
+
+The correlation ID is used to connect logs belonging to the same request across services.
+
+---
+
+# Correlation ID Flow
+
+```text
+Client
+  │
+  │ X-Correlation-ID: abc-123
+  ▼
+API Gateway
+  │
+  ├── If ID exists → propagate it
+  │
+  └── If ID missing → generate a new ID
+  │
+  ▼
+Account Service
+  │
+  │ X-Correlation-ID: abc-123
+  ▼
+Customer Service
+  │
+  │ X-Correlation-ID: abc-123
+  ▼
+Logs
+```
+
+Example:
+
+```text
+Correlation ID = 7f2a9b3c-...
+```
+
+The same ID should appear in logs generated while processing the same request.
+
+---
+
+# MDC Logging
+
+MDC allows request-specific information to be stored in the logging context.
+
+Conceptually:
+
+```java
+MDC.put("correlationId", correlationId);
+```
+
+The logging pattern can then include:
+
+```text
+correlationId
+```
+
+Example log format:
+
+```text
+2026-09-28 14:20:10 INFO
+[correlationId=7f2a9b3c-12ab-45cd]
+AccountService - Opening account
+```
+
+Another service can log:
+
+```text
+2026-09-28 14:20:10 INFO
+[correlationId=7f2a9b3c-12ab-45cd]
+CustomerService - Checking customer existence
+```
+
+The common correlation ID makes it possible to trace the request across services.
+
+---
+
+# Correlation ID Filter
+
+A servlet filter or Gateway filter can:
+
+1. Read `X-Correlation-ID`.
+2. Generate one if it is missing.
+3. Put the ID into MDC.
+4. Add it to the response.
+5. Propagate it to downstream service calls.
+6. Clear MDC after request completion.
+
+Conceptual logic:
+
+```text
+Request
+  │
+  ▼
+Read X-Correlation-ID
+  │
+  ├── Present → use existing ID
+  │
+  └── Missing → generate UUID
+  │
+  ▼
+MDC.put("correlationId", id)
+  │
+  ▼
+Process request
+  │
+  ▼
+Response header:
+X-Correlation-ID: id
+  │
+  ▼
+MDC.clear()
+```
+
+---
+
+# Correlation ID Propagation with Feign
+
+When Account Service calls Customer Service:
+
+```text
+Client
+  │
+  │ X-Correlation-ID: ABC123
+  ▼
+Gateway
+  │
+  │ ABC123
+  ▼
+Account Service
+  │
+  │ Feign RequestInterceptor
+  │ X-Correlation-ID: ABC123
+  ▼
+Customer Service
+```
+
+A Feign `RequestInterceptor` can read the correlation ID from MDC and add it to outgoing requests.
+
+Conceptually:
+
+```java
+String correlationId = MDC.get("correlationId");
+
+if (correlationId != null) {
+    template.header("X-Correlation-ID", correlationId);
+}
+```
+
+This allows the same request ID to travel across the service boundary.
+
+---
+
+# Correlation ID Security
+
+Correlation IDs are tracing identifiers, not authentication credentials.
+
+Do not place:
+
+- Passwords
+- Access tokens
+- Client secrets
+- Personal secrets
+
+inside the correlation ID.
+
+The application should validate or normalize incoming correlation IDs according to the project's security requirements.
+
+---
+
+# Logging
+
+The business services use structured application logging through SLF4J/Logback.
+
+Useful events include:
+
+- Customer registration attempts
+- Login attempts
+- Account creation
+- Customer existence checks
+- Deposit requests
+- Withdrawal requests
+- Transfer requests
+- Transaction-history queries
+- Ownership mismatches
+- Invalid input
+- Account-not-found conditions
+- Inter-service communication failures
+- Circuit breaker state changes
+- Retry attempts where useful
+- Rate-limit rejections
+- Gateway authentication failures
+
+## Example Distributed Logs
+
+```text
+[correlationId=ABC123] Gateway      - Request received
+[correlationId=ABC123] AccountSvc   - Opening account
+[correlationId=ABC123] AccountSvc   - Calling customer-service
+[correlationId=ABC123] CustomerSvc  - Checking customer existence
+[correlationId=ABC123] CustomerSvc  - Customer exists
+[correlationId=ABC123] AccountSvc   - Account created
+[correlationId=ABC123] Gateway      - Response returned
+```
+
+This creates a simple request trace without requiring a full distributed tracing system.
+
+## Security Logging Rules
+
+The application must never log:
+
+- Google passwords / Google account credentials
+- Google OAuth 2.0 client secrets
+- OAuth 2.0 authorization codes or sensitive tokens
+- Database passwords
+- Access tokens
+- Refresh tokens
+- Sensitive personal information unnecessarily
+
+---
+
 # Centralized Configuration
 
 The project uses a Config Server to centralize configuration.
@@ -892,6 +1607,10 @@ database settings
 Eureka settings
 Google OAuth 2.0 settings
 Gateway routes
+Resilience4j configuration
+Rate limiter configuration
+Logging configuration
+Correlation ID configuration
 service-specific configuration
 ```
 
@@ -927,12 +1646,6 @@ The Gateway exposes the following logical routes:
 Conceptually:
 
 ```text
-/api/auth/**
-       │
-       ▼
-lb://customer-service
-
-
 /api/customers/**
        │
        ▼
@@ -969,7 +1682,6 @@ http://localhost:8080
 | GET | `/login/oauth2/code/google` | Google OAuth 2.0 callback | OAuth 2.0 authorization callback |
 
 > The exact callback and post-login routes depend on the Spring Security OAuth 2.0 configuration.
-
 
 ## Customer APIs
 
@@ -1021,12 +1733,12 @@ The rules from the earlier Bank Management System phases remain enforced.
 # Customer Identity Rules
 
 - Authentication is performed through Google OAuth 2.0.
-- Users do not submit an application-managed password for login.
 - Google account credentials are handled by Google.
-- The application should use the authenticated Google identity/email to identify the customer.
-- Customer email/identity uniqueness should be enforced according to the application's customer-domain implementation.
+- The application uses the authenticated identity/email to identify the customer according to the implementation.
+- Customer identity uniqueness should be enforced according to the application's customer-domain implementation.
 - Sensitive Google OAuth 2.0 credentials must not be logged or committed to source control.
 
+---
 
 # Account Rules
 
@@ -1063,7 +1775,7 @@ Example request:
 
 ```http
 POST /api/deposit
-Authorization: Bearer authenticated OAuth 2.0 session
+Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
 
@@ -1302,7 +2014,7 @@ Validation covers:
 
 - Customer name
 - Email
-- Password
+- Password where applicable
 - Account type
 - Account number
 - Confirmation account number
@@ -1328,7 +2040,7 @@ BankingException
 
 Validation and malformed input are also handled consistently.
 
-The Gateway handles security/routing-related failures separately from banking business exceptions.
+The Gateway handles security, rate-limiting and routing-related failures separately from banking business exceptions.
 
 ---
 
@@ -1343,8 +2055,8 @@ The Gateway handles security/routing-related failures separately from banking bu
 | `403 Forbidden` | Authenticated user is not authorized to access the resource |
 | `404 Not Found` | Resource or route not found |
 | `409 Conflict` | Duplicate/conflicting resource |
-
-A request that matches no Gateway route returns a clean `404 Not Found`.
+| `429 Too Many Requests` | Rate limit exceeded |
+| `503 Service Unavailable` | Required downstream service is unavailable or circuit breaker is open |
 
 ---
 
@@ -1363,7 +2075,7 @@ Swagger UI, when exposed by the application, can be used to:
 - View API documentation
 - Inspect request/response DTOs
 - Execute APIs
-- Provide a Bearer Google OAuth 2.0 token
+- Authenticate through the configured OAuth 2.0 flow
 - Test protected endpoints
 
 Example:
@@ -1373,40 +2085,6 @@ http://localhost:8080/swagger-ui/index.html
 ```
 
 The exact Swagger exposure depends on the service/gateway configuration.
-
----
-
-# Logging
-
-The business services use structured application logging through SLF4J/Logback.
-
-Useful events include:
-
-- Customer registration attempts
-- Login attempts
-- Account creation
-- Customer existence checks
-- Deposit requests
-- Withdrawal requests
-- Transfer requests
-- Transaction-history queries
-- Ownership mismatches
-- Invalid input
-- Account-not-found conditions
-- Inter-service communication failures
-- Gateway authentication failures
-
-## Security Logging Rules
-
-The application must never log:
-
-- Google passwords / Google account credentials
-- OAuth 2.0 client secrets
-- OAuth 2.0 authorization codes or sensitive tokens
-- Database passwords
-- Google OAuth 2.0 client secrets
-
-OAuth 2.0 authorization codes, client secrets, and sensitive tokens should never be printed to logs.
 
 ---
 
@@ -1436,13 +2114,25 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USERNAME=root
 DB_PASSWORD=your_password
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=your_long_secure_secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-long-secure-secret
 EUREKA_SERVER_URL=http://localhost:8761/eureka
 CONFIG_SERVER_URL=http://localhost:8888
 ```
 
-> Do not commit real passwords, Google OAuth 2.0 secrets or production credentials to GitHub.
+## Resilience4j Environment Configuration
+
+Resilience4j values can also be externalized through Config Server.
+
+Typical properties include:
+
+```text
+resilience4j.circuitbreaker.instances.customerService.*
+resilience4j.retry.instances.customerService.*
+resilience4j.ratelimiter.instances.gatewayRateLimiter.*
+```
+
+Do not hardcode production secrets or environment-specific credentials in source code.
 
 ---
 
@@ -1493,8 +2183,8 @@ bank-management_account_db
 Example MySQL setup:
 
 ```sql
-CREATE DATABASE bank-management_customer_db;
-CREATE DATABASE bank-management_account_db;
+CREATE DATABASE `bank-management_customer_db`;
+CREATE DATABASE `bank-management_account_db`;
 ```
 
 The exact database names may be supplied through Config Server/environment variables.
@@ -1514,7 +2204,7 @@ No service should access the other's tables.
 
 ---
 
-# Installation
+# Build and Run
 
 ## 1. Clone the Repository
 
@@ -1646,194 +2336,114 @@ The recommended end-to-end flow is:
           ↓
 5. Start API Gateway
           ↓
-6. Register Customer
+6. Start Google OAuth 2.0 login
           ↓
-7. Login Customer
+7. Authenticate customer
           ↓
-8. Receive Google OAuth 2.0
+8. Open Account
           ↓
-9. Send Google OAuth 2.0 to Gateway
+9. Customer existence check
           ↓
-10. Open Account
+10. Account created
           ↓
-11. Customer existence check
+11. Check Balance
           ↓
-12. Account created
+12. Deposit
           ↓
 13. Check Balance
           ↓
-14. Deposit
+14. Withdraw
           ↓
-15. Check Balance
+15. Transfer
           ↓
-16. Withdraw
+16. View Transaction History
           ↓
-17. Transfer
-          ↓
-18. View Transaction History
-          ↓
-19. Filter Transaction History
+17. Filter Transaction History
 ```
 
 ---
 
-# Example API Flow
+# Resilience Testing Flow
 
-## Step 1 — Login with Google
+The resilience features can be tested independently.
 
-Open the Google OAuth 2.0 login endpoint:
+## Circuit Breaker Test
 
-```http
-GET http://localhost:8080/oauth2/authorization/google
-```
-
-The application redirects the user to Google for authentication.
+Temporarily stop Customer Service:
 
 ```text
-Browser
-  │
-  ▼
-API Gateway
-  │
-  ▼
-Google OAuth 2.0
-  │
-  ▼
-User authenticates with Google
-  │
-  ▼
-Application OAuth 2.0 callback
-  │
-  ▼
-Authenticated session
+Customer Service OFF
+       ↓
+Account Service
+       ↓
+Open Account
+       ↓
+Feign call fails
+       ↓
+Retry attempts
+       ↓
+Repeated failures
+       ↓
+Circuit opens
+       ↓
+Subsequent calls fail fast
 ```
 
-No application password is entered or stored.
+Start Customer Service again and allow the circuit to move through HALF_OPEN before returning to normal CLOSED behavior.
 
----
+## Retry Test
 
-## Step 2 — Access Protected APIs
+Introduce a temporary downstream failure.
 
-After successful Google login, use the authenticated session/security context to access protected APIs.
-
-The user does **not** need to manually generate, copy, or send a Google OAuth 2.0.
+Observe:
 
 ```text
-Google Login
-     ↓
-Authenticated Session
-     ↓
-Protected Banking API
+Initial call
+   ↓
+Retry 1
+   ↓
+Retry 2
+   ↓
+Success / final failure
 ```
 
----
+## Rate Limiter Test
 
-## Step 3 — Open Account
+With an example limit of:
+
+```text
+20 requests / 60 seconds
+```
+
+send more than 20 requests within the configured window.
+
+Expected behavior:
+
+```text
+Allowed requests
+      ↓
+Limit reached
+      ↓
+429 Too Many Requests
+```
+
+## Correlation ID Test
+
+Send:
 
 ```http
-POST http://localhost:8080/api/accounts/open
-Authorization: Bearer authenticated OAuth 2.0 session
-Content-Type: application/json
+X-Correlation-ID: TEST-123
 ```
 
-```json
-{
-  "accountType": "SAVING"
-}
-```
-
-Internally:
+and inspect logs from:
 
 ```text
 Gateway
-   ↓
-account-service
-   ↓
-Read authenticated customerId
-   ↓
-OpenFeign
-   ↓
-customer-service
-   ↓
-GET /api/customers/{id}/exists
-   ↓
-Customer exists
-   ↓
-Create Account
+Account Service
+Customer Service
 ```
 
----
-
-## Step 4 — Deposit
-
-```http
-POST http://localhost:8080/api/deposit
-Authorization: Bearer authenticated OAuth 2.0 session
-Content-Type: application/json
-```
-
-```json
-{
-  "accountNumber": "123456789012",
-  "confirmAccountNumber": "123456789012",
-  "amount": 5000
-}
-```
-
----
-
-## Step 5 — Check Balance
-
-```http
-GET http://localhost:8080/api/accounts/123456789012
-Authorization: Bearer authenticated OAuth 2.0 session
-```
-
----
-
-## Step 6 — Withdraw
-
-```http
-POST http://localhost:8080/api/withdraw
-Authorization: Bearer authenticated OAuth 2.0 session
-Content-Type: application/json
-```
-
-```json
-{
-  "accountNumber": "123456789012",
-  "confirmAccountNumber": "123456789012",
-  "amount": 1000
-}
-```
-
----
-
-## Step 7 — Transfer
-
-```http
-POST http://localhost:8080/api/transfer
-Authorization: Bearer authenticated OAuth 2.0 session
-Content-Type: application/json
-```
-
-```json
-{
-  "senderAccountNumber": "123456789012",
-  "recipientAccountNumber": "987654321098",
-  "confirmRecipientAccountNumber": "987654321098",
-  "amount": 1000
-}
-```
-
----
-
-## Step 8 — Transaction History
-
-```http
-GET http://localhost:8080/api/accounts/123456789012/history
-Authorization: Bearer authenticated OAuth 2.0 session
-```
+The same correlation ID should appear across the request flow.
 
 ---
 
@@ -1855,6 +2465,9 @@ Examples include:
 - Account ownership
 - Banking business rules
 - Microservice endpoint behavior
+- Resilience fallback behavior where applicable
+- Rate-limiting behavior where applicable
+- Correlation ID propagation where applicable
 
 The test suite can be executed using:
 
@@ -1924,9 +2537,9 @@ The integration test suite should cover important application flows such as:
 - Register customer
 - Reject invalid registration
 - Reject duplicate email
-- Login with valid credentials
-- Reject invalid credentials
-- Verify password is not stored in plain text
+- Authenticate using the configured OAuth 2.0 flow
+- Verify password is not stored in plain text where password storage is still part of the domain
+- Verify customer existence endpoint
 
 ## Account
 
@@ -1979,6 +2592,28 @@ The integration test suite should cover important application flows such as:
 - Time-based filtering
 - Status-based filtering
 - Ownership validation
+
+## Resilience
+
+- Customer Service temporary failure
+- Retry behavior
+- Circuit breaker transition/fallback
+- Controlled downstream failure response
+
+## Rate Limiting
+
+- Requests below configured limit are accepted
+- Requests exceeding configured limit receive `429`
+- Limiter refresh behavior
+
+## Correlation ID
+
+- Existing correlation ID is preserved
+- Missing correlation ID is generated
+- Response contains correlation ID
+- Feign request propagates correlation ID
+- MDC is populated during request processing
+- MDC is cleared after request completion
 
 ---
 
@@ -2036,9 +2671,15 @@ Gateway
   ↓
 Account Service
   ↓
+Resilience4j
+  ↓
 OpenFeign
   ↓
 Customer Service unavailable
+  ↓
+Retry
+  ↓
+Circuit Breaker / fallback
   ↓
 Clear application error
 ```
@@ -2046,6 +2687,43 @@ Clear application error
 The request should fail clearly rather than hanging indefinitely or exposing an unhandled stack trace.
 
 Account Service must not depend on Customer Service being available during its own application startup.
+
+---
+
+# Resilience Failure Handling
+
+A controlled failure path should look like:
+
+```text
+Remote Service Failure
+        │
+        ▼
+      Retry
+        │
+   ┌────┴────┐
+ Success   Failure
+   │          │
+   ▼          ▼
+Response   Circuit statistics
+              │
+              ▼
+        Circuit may OPEN
+              │
+              ▼
+        Fallback response
+```
+
+For customer verification:
+
+```text
+Customer verification unavailable
+          ↓
+Do not create account
+          ↓
+Return controlled service-unavailable response
+```
+
+This prevents the system from making an unsafe assumption that a customer exists when the dependency cannot be verified.
 
 ---
 
@@ -2137,13 +2815,19 @@ This is a service-to-service boundary.
 
 ---
 
-## 5. Google OAuth 2.0 Authentication Is Not Revalidated by Calling Customer Service
+## 5. Customer Verification Is Resilient
 
-The Gateway verifies the Google OAuth 2.0 locally.
+Because Customer Service is remote, Account Service uses:
 
-The system does not call Customer Service for every protected request.
+```text
+OpenFeign
+    +
+Retry
+    +
+Circuit Breaker
+```
 
-This preserves the stateless nature of OAuth 2.0 authentication.
+The fallback does not create an account when customer verification cannot be completed.
 
 ---
 
@@ -2160,6 +2844,7 @@ Gateway
   │
   ├── Is request authenticated?
   ├── Is request allowed through the API boundary?
+  ├── Is rate limit exceeded?
   │
   ▼
 Account Service
@@ -2172,7 +2857,33 @@ Account Service
 
 ---
 
-## 7. DTOs at API Boundaries
+## 7. Rate Limiting at the Gateway
+
+Rate limiting is applied at the external API boundary.
+
+This helps protect downstream services from excessive request volume.
+
+The Gateway rejects requests before routing them when the configured rate limit has been exceeded.
+
+---
+
+## 8. Correlation ID Across Services
+
+The same correlation ID is propagated through:
+
+```text
+Gateway
+   ↓
+Account Service
+   ↓
+Customer Service
+```
+
+MDC stores the ID during request processing so logs can be correlated.
+
+---
+
+## 9. DTOs at API Boundaries
 
 DTOs are used at API boundaries.
 
@@ -2187,7 +2898,7 @@ Entities should not be exposed directly as public API contracts.
 
 ---
 
-## 8. Constructor Injection
+## 10. Constructor Injection
 
 Constructor injection is used throughout the services.
 
@@ -2195,7 +2906,7 @@ Dependencies should not be field-injected.
 
 ---
 
-## 9. Centralized Configuration
+## 11. Centralized Configuration
 
 Common and service-specific configuration is externalized through Config Server.
 
@@ -2203,11 +2914,37 @@ Sensitive configuration is supplied through secure environment variables.
 
 ---
 
-## 10. H2 Is Test-Only
+## 12. H2 Is Test-Only
 
 H2 is used for integration-test persistence.
 
 MySQL remains the application database for normal runtime usage.
+
+---
+
+## 13. Retry Is Used Only for Transient Failures
+
+Retry should not repeat permanent business failures.
+
+Examples that generally should not be retried:
+
+```text
+Invalid request
+Customer not found
+Invalid account type
+Insufficient funds
+Ownership violation
+```
+
+Retries are intended for temporary technical failures.
+
+---
+
+## 14. Circuit Breaker Prevents Repeated Downstream Calls
+
+When a remote dependency repeatedly fails, the circuit breaker can move to OPEN state.
+
+This allows the application to fail fast rather than continuously consuming resources on calls that are currently unlikely to succeed.
 
 ---
 
@@ -2253,16 +2990,23 @@ Additional infrastructure:
 Config Server
 Eureka Discovery
 OpenFeign
+Resilience4j
+Rate Limiting
+Correlation ID
+MDC Logging
 API Gateway
 ```
 
-Advantages demonstrated by this project:
+The microservices version demonstrates:
 
 - Independent deployment
 - Independent database ownership
 - Service discovery
 - Network-based communication
 - Clear domain boundaries
+- Resilience patterns
+- Rate limiting
+- Distributed request correlation
 - Independent scaling potential
 - Failure isolation concepts
 
@@ -2275,6 +3019,8 @@ Additional complexity:
 - Distributed debugging
 - API compatibility
 - Operational monitoring
+- Resilience configuration
+- Distributed observability
 
 For Bank Management System, the microservices version is primarily a learning exercise.
 
@@ -2286,9 +3032,9 @@ For Bank Management System, the microservices version is primarily a learning ex
 
 Possible reasons:
 
-- Google OAuth 2.0 missing
-- Google OAuth 2.0 invalid
-- Google OAuth 2.0 expired
+- Google OAuth 2.0 authentication missing
+- Access token invalid
+- Access token expired
 - Invalid Authorization header
 - Incorrect Bearer prefix
 - Gateway security configuration rejected the request
@@ -2296,7 +3042,7 @@ Possible reasons:
 Correct header:
 
 ```http
-Authorization: Bearer authenticated OAuth 2.0 session
+Authorization: Bearer <access-token>
 ```
 
 ---
@@ -2324,7 +3070,55 @@ A path that matches no Gateway route should return a clean 404.
 
 ---
 
-## 4. Eureka Service Not Registered
+## 4. 409 Conflict
+
+Possible reasons:
+
+- Duplicate customer email
+- Duplicate account type for the same customer
+- Other application-defined resource conflicts
+
+---
+
+## 5. 429 Too Many Requests
+
+Possible reasons:
+
+- Gateway rate limit has been exceeded.
+
+Check:
+
+```text
+Rate limiter configuration
+Request frequency
+Configured refresh period
+Client/IP/user rate-limiting key
+```
+
+---
+
+## 6. 503 Service Unavailable
+
+Possible reasons:
+
+- Customer Service unavailable
+- Circuit breaker is OPEN
+- Required downstream dependency is unavailable
+- Service communication failure
+
+Check:
+
+```text
+Eureka registration
+Customer Service availability
+Feign configuration
+Circuit breaker state
+Retry configuration
+```
+
+---
+
+## 7. Eureka Service Not Registered
 
 Check:
 
@@ -2345,7 +3139,7 @@ and verify registered services.
 
 ---
 
-## 5. Config Server Error
+## 8. Config Server Error
 
 Check:
 
@@ -2358,7 +3152,7 @@ CONFIG_SERVER_URL is correct
 
 ---
 
-## 6. Customer Service Unavailable During Account Creation
+## 9. Customer Service Unavailable During Account Creation
 
 This affects:
 
@@ -2368,11 +3162,21 @@ POST /api/accounts/open
 
 because Account Service must verify the customer through Customer Service.
 
-The request should return a clear service-communication error rather than waiting indefinitely.
+The request should use:
+
+```text
+OpenFeign
++
+Retry
++
+Circuit Breaker
+```
+
+and return a clear controlled error when verification cannot be completed.
 
 ---
 
-## 7. Database Connection Error
+## 10. Database Connection Error
 
 Check:
 
@@ -2391,7 +3195,7 @@ Account Service must connect only to its account database.
 
 ---
 
-## 8. OpenFeign Error
+## 11. OpenFeign Error
 
 Check:
 
@@ -2400,20 +3204,43 @@ Eureka Server
 customer-service registration
 Feign service name
 Customer Service availability
-Gateway-independent internal communication
+Resilience4j configuration
 ```
 
 The Feign client should use the logical service name, not a hardcoded host/port.
 
 ---
 
-## 9. Account Service Fails Because Customer Service Is Down
+## 12. Account Service Fails Because Customer Service Is Down
 
 This is a design bug if it occurs during startup.
 
 Account Service should be able to boot independently.
 
 The Customer Service dependency is required when creating an account, not when Account Service starts.
+
+---
+
+## 13. Correlation ID Missing From Logs
+
+Check:
+
+```text
+Correlation ID filter
+MDC.put()
+MDC.clear()
+Logging pattern
+Feign RequestInterceptor
+Gateway propagation
+```
+
+Verify that:
+
+```text
+X-Correlation-ID
+```
+
+is passed between services.
 
 ---
 
@@ -2425,8 +3252,13 @@ The Customer Service dependency is required when creating an account, not when A
                            ▼
                     API GATEWAY :8080
                            │
-                    Google OAuth 2.0 Authentication
-                    Authorization
+                    ┌──────┴───────┐
+                    │              │
+              OAuth 2.0       Rate Limiter
+                    │              │
+                    └──────┬───────┘
+                           │
+                    Correlation ID
                            │
              ┌─────────────┴─────────────┐
              │                           │
@@ -2434,15 +3266,16 @@ The Customer Service dependency is required when creating an account, not when A
       CUSTOMER SERVICE             ACCOUNT SERVICE
            :8081                         :8082
              │                           │
-             ▼                           ▼
-       CUSTOMER DB                  ACCOUNT DB
+             ▼                           │
+       CUSTOMER DB                      │
                                          │
                               ┌──────────┴──────────┐
                               │                     │
                            Account              Transaction
                               │
-                              │
                               │ OpenFeign
+                              │ Retry
+                              │ Circuit Breaker
                               ▼
                        CUSTOMER SERVICE
                               │
@@ -2459,7 +3292,9 @@ CONFIG SERVER :8888
     ├── Gateway configuration
     ├── Customer configuration
     ├── Account configuration
-    └── Discovery configuration
+    ├── Resilience4j configuration
+    ├── Rate limiter configuration
+    └── Logging configuration
 ```
 
 ---
@@ -2470,11 +3305,15 @@ CONFIG SERVER :8888
 Client
   │
   │ POST /api/accounts/open
-  │ Authorization: Bearer Google OAuth 2.0
+  │ Authorization: Bearer <access-token>
+  │ X-Correlation-ID: ABC123
   ▼
 API Gateway
   │
-  │ Validate Google OAuth 2.0 / Authorization
+  ├── Authenticate / authorize
+  ├── Apply rate limit
+  ├── Create/propagate correlation ID
+  │
   ▼
 Account Service
   │
@@ -2484,35 +3323,26 @@ Account Service
   │
   ├── Check duplicate account type
   │
-  ├── Call Customer Service
-  │       │
-  │       ▼
-  │   GET /api/customers/{id}/exists
-  │       │
-  │       ▼
-  │   Customer exists
+  ├── Resilience4j Circuit Breaker
   │
-  ├── Create Account
+  ├── Retry policy
   │
-  └── Save Account
-```
-
-If the customer does not exist:
-
-```text
-Customer Service
-      │
-      ▼
-exists = false
-      │
-      ▼
-Account Service
-      │
-      ▼
-AccountNotFoundException
-      │
-      ▼
-Client receives error
+  └── OpenFeign
+          │
+          ▼
+    Customer Service
+          │
+          ▼
+GET /api/customers/{id}/exists
+          │
+          ▼
+   Customer exists?
+      ┌───┴────┐
+     YES       NO
+      │         │
+      ▼         ▼
+ Create      Controlled error
+ Account
 ```
 
 ---
@@ -2525,10 +3355,14 @@ Client
   ▼
 API Gateway
   │
+  ├── Authentication
+  ├── Rate Limiting
+  └── Correlation ID
+  │
   ▼
 Account Service
   │
-  ├── Validate Google OAuth 2.0 context
+  ├── Validate authenticated customer
   │
   ├── Validate sender ownership
   │
@@ -2567,27 +3401,31 @@ The project must preserve the following security requirements:
 - Account ownership is enforced inside Account Service.
 - Google passwords are never stored by the application.
 - Google OAuth 2.0 client secrets are externalized.
-- OAuth authorization codes, client secrets, and other sensitive credentials are never logged.
+- OAuth authorization codes, client secrets, access tokens and sensitive credentials are never logged.
 - Database credentials are externalized.
 - No peer-service host/port is hardcoded in Java code.
 - Sensitive information is not returned by service-to-service APIs.
 - Customer existence APIs return only the minimum information required.
+- Rate limiting is applied at the API boundary.
+- Correlation IDs contain no sensitive credentials.
 
+---
 
 # Future Improvements
 
 The current project demonstrates the required Phase 5 microservices pattern. Possible production-oriented improvements include:
 
-- Replace shared Google OAuth 2.0 secret with asymmetric public/private key authentication.
-- Add production-grade session/token lifecycle management where required.
+- Replace shared OAuth 2.0 client-secret approaches with an appropriate asymmetric-token validation architecture where required.
 - Add centralized secret management.
-- Add distributed tracing.
-- Add correlation IDs.
+- Add distributed tracing with OpenTelemetry.
+- Add W3C Trace Context support.
 - Add centralized log aggregation.
 - Add metrics and monitoring.
-- Add circuit breaker/resilience patterns.
+- Add Prometheus/Grafana monitoring.
+- Add Redis-backed distributed rate limiting.
+- Add circuit-breaker metrics and dashboards.
+- Add more granular retry policies.
 - Add request timeouts and retry policies for Feign calls.
-- Add rate limiting at the Gateway.
 - Add API versioning.
 - Add pagination for transaction history.
 - Add transaction sorting.
@@ -2599,7 +3437,7 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 - Add health checks and readiness/liveness probes.
 - Add centralized configuration encryption.
 - Add load balancing and horizontal scaling.
-- Add distributed tracing using OpenTelemetry.
+- Add full distributed tracing and service dependency visualization.
 
 ---
 
@@ -2626,6 +3464,13 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 - Spring Security OAuth2 Client
 - Google login flow
 - Centralized configuration
+- Resilience4j Circuit Breaker
+- Resilience4j Retry mechanism
+- Resilience4j Rate Limiter
+- API Gateway rate limiting
+- Correlation ID generation/propagation
+- MDC-based request logging
+- Feign correlation ID propagation
 - Integration testing
 - H2 test database
 - Independent Maven projects
@@ -2653,6 +3498,8 @@ The current project demonstrates the required Phase 5 microservices pattern. Pos
 - SLF4J logging
 - Swagger/OpenAPI support
 
+---
+
 # Author
 
 **Nikhil Patidar**
@@ -2674,6 +3521,12 @@ Bank Management System — Phase 5 Microservices Banking Backend
 - Spring Cloud Gateway
 - Spring Cloud OpenFeign
 - Spring Cloud Config
+- Resilience4j
+- Circuit Breaker
+- Retry
+- Rate Limiter
+- Correlation ID
+- MDC / SLF4J / Logback
 - Jakarta Validation
 - Swagger/OpenAPI
 - JUnit 5
@@ -2682,6 +3535,8 @@ Bank Management System — Phase 5 Microservices Banking Backend
 - H2
 - Maven
 - Lombok
+
+---
 
 # License
 
@@ -2700,6 +3555,7 @@ Unless otherwise specified, the project can be used and modified for learning an
 - Spring Cloud Gateway
 - Spring Cloud OpenFeign
 - Spring Cloud Config
+- Resilience4j documentation and community
 - Spring Data JPA and Hibernate
 - MySQL
 - H2 Database
