@@ -10,6 +10,7 @@ import com.bankManagement.account_service.exception.BankingException;
 import com.bankManagement.account_service.feign.CustomerClient;
 import com.bankManagement.account_service.repository.AccountRepository;
 import com.bankManagement.account_service.service.TransactionService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
+@CircuitBreaker(name = "customer-service")
 public class TransactionServiceImpl implements TransactionService {
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);

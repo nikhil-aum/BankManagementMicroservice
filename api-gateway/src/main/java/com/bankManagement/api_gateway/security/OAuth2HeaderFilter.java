@@ -2,6 +2,7 @@ package com.bankManagement.api_gateway.security;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -27,7 +28,12 @@ public class OAuth2HeaderFilter implements GlobalFilter, Ordered {
                     String email = user.getAttribute("email");
                     String name = user.getAttribute("name");
 
-                    logger.info("Relaying authenticated Google user: {}", email);
+                    String correlationId = exchange.getAttribute("correlationId");
+
+                    try (MDC.MDCCloseable ignored =
+                                 MDC.putCloseable("correlationId", correlationId != null ? correlationId : "")) {
+                        logger.info("Relaying authenticated Google user: {}", email);
+                    }
 
                     ServerWebExchange mutatedExchange = exchange.mutate()
                             .request(r -> r
