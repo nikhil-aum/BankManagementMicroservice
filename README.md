@@ -3207,5 +3207,3 @@ Unless otherwise specified, the project can be used and modified for learning an
 - Swagger / OpenAPI
 - JUnit
 - Maven
-- Lombok
-- Spring ecosystem and community
