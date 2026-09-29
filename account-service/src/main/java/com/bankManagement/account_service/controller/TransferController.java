@@ -5,6 +5,7 @@ import com.bankManagement.account_service.service.TransferService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,7 @@ public class TransferController {
     @PostMapping
     @Operation(summary = "Transfer money")
     public ResponseEntity<?> transfer(
-            @RequestBody MoneyTransferRequestDTO request,
+           @Valid @RequestBody MoneyTransferRequestDTO request,
             @Parameter(hidden = true)
             @RequestHeader(value = "X-Customer-Email", required = false) String authenticatedCustomerEmail) {
 

@@ -8,8 +8,8 @@ import com.bankManagement.account_service.util.CustomerLookupService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
@@ -45,19 +45,12 @@ class DepositControllerTest {
 
     @Test
     void deposit_Success() throws Exception {
-
         String email = "nikhil@gmail.com";
 
         CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        1L,
-                        "Nikhil",
-                        email,
-                        true
-                );
+                new CustomerExistsResponseDTO(1L, "Nikhil", email, true);
 
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
         Account account = new Account();
         account.setAccountNumber("ACC12345");
@@ -84,29 +77,10 @@ class DepositControllerTest {
                         .value("₹2000 credited successfully in your account"));
     }
 
+    // UPDATED: @Positive annotation now fails fast with 400 Bad Request
     @Test
     void deposit_NegativeAmount() throws Exception {
-
         String email = "nikhil@gmail.com";
-
-        CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        1L,
-                        "Nikhil",
-                        email,
-                        true
-                );
-
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
-
-        Account account = new Account();
-        account.setAccountNumber("ACC12345");
-        account.setAccountType(AccountType.SAVING);
-        account.setBalance(BigDecimal.valueOf(5000));
-        account.setCustomerId(1L);
-
-        accountRepository.save(account);
 
         String requestBody = """
                 {
@@ -120,34 +94,13 @@ class DepositControllerTest {
                         .header("X-Customer-Email", email)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message")
-                        .value("Deposit failed: Amount must be greater than 0"));
+                .andExpect(status().isBadRequest());
     }
 
+    // UPDATED: @Positive annotation now fails fast with 400 Bad Request
     @Test
     void deposit_ZeroAmount() throws Exception {
-
         String email = "nikhil@gmail.com";
-
-        CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        1L,
-                        "Nikhil",
-                        email,
-                        true
-                );
-
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
-
-        Account account = new Account();
-        account.setAccountNumber("ACC12345");
-        account.setAccountType(AccountType.SAVING);
-        account.setBalance(BigDecimal.valueOf(5000));
-        account.setCustomerId(1L);
-
-        accountRepository.save(account);
 
         String requestBody = """
                 {
@@ -161,26 +114,57 @@ class DepositControllerTest {
                         .header("X-Customer-Email", email)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message")
-                        .value("Deposit failed: Amount must be greater than 0"));
+                .andExpect(status().isBadRequest());
+    }
+
+    // NEW: Tests @NotBlank validation on accountNumber
+    @Test
+    void deposit_BlankAccountNumber() throws Exception {
+        String email = "nikhil@gmail.com";
+
+        String requestBody = """
+                {
+                    "accountNumber": "",
+                    "confirmAccountNumber": "ACC12345",
+                    "amount": 2000
+                }
+                """;
+
+        mockMvc.perform(post("/api/deposit")
+                        .header("X-Customer-Email", email)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // NEW: Tests @NotBlank validation on confirmAccountNumber
+    @Test
+    void deposit_BlankConfirmAccountNumber() throws Exception {
+        String email = "nikhil@gmail.com";
+
+        String requestBody = """
+                {
+                    "accountNumber": "ACC12345",
+                    "confirmAccountNumber": "",
+                    "amount": 2000
+                }
+                """;
+
+        mockMvc.perform(post("/api/deposit")
+                        .header("X-Customer-Email", email)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void deposit_AccountNumberMismatch() throws Exception {
-
         String email = "nikhil@gmail.com";
 
         CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        1L,
-                        "Nikhil",
-                        email,
-                        true
-                );
+                new CustomerExistsResponseDTO(1L, "Nikhil", email, true);
 
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
         String requestBody = """
                 {
@@ -199,19 +183,12 @@ class DepositControllerTest {
 
     @Test
     void deposit_AccountNotFound() throws Exception {
-
         String email = "nikhil@gmail.com";
 
         CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        1L,
-                        "Nikhil",
-                        email,
-                        true
-                );
+                new CustomerExistsResponseDTO(1L, "Nikhil", email, true);
 
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
         String requestBody = """
                 {
@@ -230,19 +207,12 @@ class DepositControllerTest {
 
     @Test
     void deposit_OwnershipMismatch() throws Exception {
-
         String email = "nikhil@gmail.com";
 
         CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        2L,
-                        "Nikhil",
-                        email,
-                        true
-                );
+                new CustomerExistsResponseDTO(2L, "Nikhil", email, true);
 
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
         Account account = new Account();
         account.setAccountNumber("ACC12345");
@@ -269,19 +239,12 @@ class DepositControllerTest {
 
     @Test
     void deposit_CustomerNotFound() throws Exception {
-
         String email = "unknown@gmail.com";
 
         CustomerExistsResponseDTO customer =
-                new CustomerExistsResponseDTO(
-                        null,
-                        null,
-                        email,
-                        false
-                );
+                new CustomerExistsResponseDTO(null, null, email, false);
 
-        when(customerLookupService.getCustomerByEmail(email))
-                .thenReturn(customer);
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
         String requestBody = """
                 {
@@ -300,7 +263,6 @@ class DepositControllerTest {
 
     @Test
     void deposit_MissingCustomerEmailHeader() throws Exception {
-
         String requestBody = """
                 {
                     "accountNumber": "ACC12345",
