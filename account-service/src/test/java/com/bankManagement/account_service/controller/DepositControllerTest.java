@@ -77,7 +77,6 @@ class DepositControllerTest {
                         .value("₹2000 credited successfully in your account"));
     }
 
-    // UPDATED: @Positive annotation now fails fast with 400 Bad Request
     @Test
     void deposit_NegativeAmount() throws Exception {
         String email = "nikhil@gmail.com";
@@ -97,7 +96,6 @@ class DepositControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // UPDATED: @Positive annotation now fails fast with 400 Bad Request
     @Test
     void deposit_ZeroAmount() throws Exception {
         String email = "nikhil@gmail.com";
@@ -117,7 +115,6 @@ class DepositControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // NEW: Tests @NotBlank validation on accountNumber
     @Test
     void deposit_BlankAccountNumber() throws Exception {
         String email = "nikhil@gmail.com";
@@ -137,7 +134,6 @@ class DepositControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // NEW: Tests @NotBlank validation on confirmAccountNumber
     @Test
     void deposit_BlankConfirmAccountNumber() throws Exception {
         String email = "nikhil@gmail.com";
@@ -238,11 +234,56 @@ class DepositControllerTest {
     }
 
     @Test
-    void deposit_CustomerNotFound() throws Exception {
+    void deposit_CustomerNotFound_NotExists() throws Exception {
         String email = "unknown@gmail.com";
 
         CustomerExistsResponseDTO customer =
                 new CustomerExistsResponseDTO(null, null, email, false);
+
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
+
+        String requestBody = """
+                {
+                    "accountNumber": "ACC12345",
+                    "confirmAccountNumber": "ACC12345",
+                    "amount": 2000
+                }
+                """;
+
+        mockMvc.perform(post("/api/deposit")
+                        .header("X-Customer-Email", email)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deposit_CustomerNullResponse() throws Exception {
+        String email = "nullcustomer@gmail.com";
+
+        when(customerLookupService.getCustomerByEmail(email)).thenReturn(null);
+
+        String requestBody = """
+                {
+                    "accountNumber": "ACC12345",
+                    "confirmAccountNumber": "ACC12345",
+                    "amount": 2000
+                }
+                """;
+
+        mockMvc.perform(post("/api/deposit")
+                        .header("X-Customer-Email", email)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deposit_CustomerIdNull() throws Exception {
+        String email = "nullid@gmail.com";
+
+        CustomerExistsResponseDTO customer =
+                new CustomerExistsResponseDTO(null, "Nikhil", email, true);
 
         when(customerLookupService.getCustomerByEmail(email)).thenReturn(customer);
 
